@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>10Xer Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-cyan-100 to-blue-100 min-h-screen flex items-center justify-center px-4">
+
+  <main class="bg-white rounded-xl shadow-xl w-full max-w-md p-8 space-y-6 transition-all duration-300">
+    
+    <!-- Logo -->
+    <div class="flex justify-center">
+      <img src="https://cdn-icons-png.flaticon.com/512/3210/3210854.png" alt="10Xer Logo" class="h-12 w-12" />
+    </div>
+
+    <!-- Heading -->
+    <div class="text-center space-y-1">
+      <h1 class="text-2xl font-bold text-gray-900">Login to your 10Xer account</h1>
+      <p class="text-sm text-gray-600">Streamline your workflows with AI-powered insights</p>
+    </div>
+
+    <!-- Email Form -->
+    <form method="POST" class="space-y-5">
+      <div>
+        <label for="email" class="block text-sm font-medium text-gray-700">Email address <span class="text-red-500">*</span></label>
+        <input id="email" name="email" type="email" required placeholder="you@example.com"
+          class="mt-1 block w-full rounded-md border border-gray-300 px-4 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 outline-none" />
+      </div>
+
+      <button type="submit"
+        class="w-full bg-indigo-600 text-white py-2 rounded-md text-sm font-semibold hover:bg-indigo-700 transition">
+        Continue with Email
+      </button>
+    </form>
+
+    <!-- Footer Notice -->
+    <p class="text-xs text-gray-500 text-center px-4">
+      By clicking "Continue with Email", you agree to receive occasional product updates and account alerts. See our
+      <a href="#" class="text-indigo-600 hover:underline">Privacy Policy</a>.
+    </p>
+
+    <!-- Footer Links -->
+    <nav class="flex justify-center space-x-6 text-xs text-gray-500">
+      <a href="#" class="hover:underline">Help</a>
+      <a href="#" class="hover:underline">Privacy</a>
+      <a href="#" class="hover:underline">Terms</a>
+    </nav>
+  </main>
+
+</body>
+</html>

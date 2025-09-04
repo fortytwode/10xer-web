@@ -1,0 +1,118 @@
+<!-- templates/dashboard.html -->
+{% extends "main.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div
+  class="bg-white p-4 sm:p-6 rounded-xl shadow-lg 
+         w-full max-w-full sm:max-w-lg
+         mx-auto
+         "
+>
+  <!-- Header -->
+  <h1 class="text-2xl font-bold text-gray-900 mb-2 break-words">
+    👋 Welcome, <span class="text-indigo-600 break-words">{{ email }}</span>
+  </h1>
+  <p class="text-gray-600 mb-6">Here's your personal API key.</p>
+
+  <!-- API Key Section -->
+  {% if api_key %}
+  <div class="mb-2 text-gray-800 font-medium break-words">API Key</div>
+
+  <div
+    class="relative flex flex-col space-y-2 mb-2
+           sm:flex-row sm:space-x-2 sm:space-y-0"
+  >
+    <input
+      readonly
+      type="password"
+      id="apiKey"
+      value="{{ api_key }}"
+      class="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+      style="min-width:0;"
+    />
+
+    <button
+      onclick="toggleVisibility('apiKey', this)"
+      class="text-sm px-3 py-1.5 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 transition whitespace-nowrap min-w-[72px]"
+    >
+      Show
+    </button>
+
+    <button
+      onclick="copyKey('apiKey')"
+      id="copyBtn"
+      class="text-sm px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white transition whitespace-nowrap min-w-[72px]"
+    >
+      Copy
+    </button>
+  </div>
+
+  <div
+    id="copyMessage"
+    class="text-sm text-green-600 hidden mb-4 transition-opacity break-words"
+  >
+    ✅ API key copied!
+  </div>
+
+  {% else %}
+  <p class="text-sm text-gray-600 mb-4 break-words">You don't have an API key.</p>
+  {% endif %}
+
+  <!-- Sign out -->
+  <form action="{{ url_for('auth.logout') }}" method="post" class="mt-6">
+    <button
+      type="submit" 
+      class="w-full text-sm bg-red-500 hover:bg-red-600 text-white font-semibold py-2 rounded transition"
+    >
+      Sign out
+    </button>
+  </form>
+</div>
+
+<!-- JS -->
+<script>
+  window.addEventListener("DOMContentLoaded", function () {
+    {% if access_token %}
+    localStorage.setItem("accessToken", "{{ access_token }}");
+    {% endif %}
+    {% if api_key %}
+    localStorage.setItem("apiKey", "{{ api_key }}");
+    {% endif %}
+  });
+
+  function copyKey(id) {
+    const input = document.getElementById(id);
+    const copyBtn = document.getElementById("copyBtn");
+    const message = document.getElementById("copyMessage");
+
+    navigator.clipboard.writeText(input.value).then(() => {
+      message.classList.remove("hidden");
+      message.classList.add("opacity-100");
+
+      copyBtn.textContent = "Copied!";
+      copyBtn.classList.remove("bg-indigo-600");
+      copyBtn.classList.add("bg-green-600");
+
+      setTimeout(() => {
+        message.classList.add("hidden");
+        copyBtn.textContent = "Copy";
+        copyBtn.classList.remove("bg-green-600");
+        copyBtn.classList.add("bg-indigo-600");
+      }, 2000);
+    });
+  }
+
+  function toggleVisibility(id, btn) {
+    const input = document.getElementById(id);
+    if (input.type === "password") {
+      input.type = "text";
+      btn.textContent = "Hide";
+    } else {
+      input.type = "password";
+      btn.textContent = "Show";
+    }
+  }
+</script>
+{% endblock %}

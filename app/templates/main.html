@@ -1,0 +1,57 @@
+<!-- templates/main.html -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>{% block title %}API Dashboard{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gradient-to-br from-cyan-100 to-blue-100 min-h-screen flex items-start justify-start px-4 py-6">
+
+  <!-- Sidebar -->
+  <aside class="w-64 h-screen p-6 bg-white border-r rounded-r-2xl shadow-md">
+    <h2 class="text-xl font-semibold mb-6">Settings</h2>
+    <ul class="space-y-2">
+      <li>
+        <a href="{{ url_for('integrations.integrations') }}"
+           class="sidebar-link flex items-center text-gray-700 hover:text-black px-2 py-1 rounded"
+           data-path="{{ url_for('integrations.integrations') }}">
+          <span class="mr-2">🔗</span> Integrations
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('dashboard.dashboard') }}"
+           class="sidebar-link flex items-center text-gray-700 hover:text-black px-2 py-1 rounded"
+           data-path="{{ url_for('dashboard.dashboard') }}">
+          <span class="mr-2">🗝️</span> API Keys
+        </a>
+      </li>
+    </ul>
+  </aside>
+
+  <!-- Main content area -->
+  <main class="flex-1 p-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Active Link Highlighter -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.sidebar-link');
+      const currentPath = window.location.pathname;
+
+      links.forEach(link => {
+        const linkPath = link.getAttribute('data-path');
+        if (linkPath === currentPath) {
+          link.classList.add('bg-gray-100', 'text-black', 'font-medium');
+        } else {
+          link.classList.remove('bg-gray-100', 'text-black', 'font-medium');
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>

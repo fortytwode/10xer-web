@@ -1,0 +1,145 @@
+{% extends "main.html" %}
+
+{% block title %}Set Up Your Integrations{% endblock %}
+
+{% block content %}
+<div
+  class="bg-white p-4 sm:p-8 rounded-xl shadow-lg 
+         w-full max-w-full sm:max-w-lg
+         mx-auto
+         "
+>
+
+  <h1 class="text-2xl font-bold mb-6 break-words">Set Up Your Integrations</h1>
+
+  <!-- Facebook Integration -->
+  <div
+    class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 mb-4 border border-gray-200 rounded-lg space-y-3 sm:space-y-0"
+  >
+    <div class="flex items-center space-x-4 min-w-0">
+      <img
+        src="/images/meta_ads_logo.png"
+        alt="Meta Ads"
+        class="w-6 h-6 flex-shrink-0"
+      />
+      <span class="font-medium text-gray-900 truncate">Meta Ads</span>
+    </div>
+
+    <!-- Connected / Disconnect -->
+    <div
+      id="facebook-connected"
+      class="flex items-center space-x-4 hidden min-w-max"
+    >
+      <span
+        class="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 whitespace-nowrap"
+        >Active</span
+      >
+      <button
+        id="facebook-disconnect-btn"
+        class="bg-red-600 text-white text-sm font-semibold px-4 py-1 rounded hover:bg-red-700 transition whitespace-nowrap"
+      >
+        Disconnect
+      </button>
+    </div>
+
+    <!-- Connect button -->
+    <div
+      id="facebook-connect"
+      class="hidden flex items-center min-w-max"
+    >
+      <span
+        class="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 mr-4 whitespace-nowrap"
+        >Inactive</span
+      >
+      <a
+        href="{{ url_for('integrations.facebook_connect') }}"
+        class="bg-blue-700 text-white text-sm font-semibold px-4 py-1 rounded hover:bg-blue-800 transition whitespace-nowrap"
+      >
+        Connect
+      </a>
+    </div>
+  </div>
+
+  <!-- Optional: Uncomment if you want skip link -->
+  <!--
+  <a href="{{ url_for('dashboard.dashboard') }}" class="block mt-6 text-center text-teal-700 hover:underline font-semibold">
+    Skip and go to Dashboard
+  </a>
+  -->
+
+</div>
+
+<script>
+  // Store user info in localStorage
+  const userId = "{{ user.id }}";
+  const userEmail = "{{ user.email }}";
+  const facebookToken = "{{ accessToken | default('') }}";
+
+  if (userId) {
+    localStorage.setItem("userId", userId);
+  }
+  if (userEmail) {
+    localStorage.setItem("userEmail", userEmail);
+  }
+  if (facebookToken) {
+    localStorage.setItem("accessToken", facebookToken);
+  }
+
+  window.addEventListener("DOMContentLoaded", () => {
+    const fbConnectDiv = document.getElementById("facebook-connect");
+    const fbConnectedDiv = document.getElementById("facebook-connected");
+    const disconnectBtn = document.getElementById("facebook-disconnect-btn");
+
+    function showConnected() {
+      fbConnectedDiv.classList.remove("hidden");
+      fbConnectDiv.classList.add("hidden");
+    }
+
+    function showConnect() {
+      fbConnectDiv.classList.remove("hidden");
+      fbConnectedDiv.classList.add("hidden");
+    }
+
+    if (localStorage.getItem("accessToken")) {
+      showConnected();
+    } else {
+      showConnect();
+    }
+
+    if (disconnectBtn) {
+      disconnectBtn.addEventListener("click", async () => {
+        const confirmDisconnect = confirm(
+          "Are you sure you want to disconnect Facebook?"
+        );
+        if (!confirmDisconnect) return;
+
+        try {
+          const response = await fetch(
+            "{{ url_for('integrations.facebook_disconnect') }}",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              credentials: "same-origin", // important for sending cookies/session
+            }
+          );
+
+          if (response.ok) {
+            localStorage.removeItem("accessToken");
+            alert("Facebook integration disconnected successfully.");
+            showConnect();
+          } else if (response.status === 404) {
+            alert("No Facebook integration found to disconnect.");
+          } else {
+            alert("Failed to disconnect Facebook integration.");
+          }
+        } catch (error) {
+          console.error("Error:", error);
+          alert("An error occurred. Please try again.");
+        }
+      });
+    }
+  });
+</script>
+{% endblock %}
