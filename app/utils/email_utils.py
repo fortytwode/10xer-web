@@ -8,9 +8,10 @@ load_dotenv()
 
 GMAIL_USER = os.getenv("GMAIL_USER")  # e.g., yourname@gmail.com
 GMAIL_PASS = os.getenv("GMAIL_PASS")  # App password (not your main password)
+LIVE_APP_URL = os.getenv("LIVE_APP_URL")
 
 def send_verification_email(to_email, token):
-    verify_url = f"http://localhost:8000/users/api/auth/callback/email?token={token}&email={to_email}"
+    verify_url = f"{LIVE_APP_URL}/users/api/auth/callback/email?token={token}&email={to_email}"
     
     msg = MIMEMultipart("alternative")
     msg["Subject"] = "Sign in to your 10xer account"
