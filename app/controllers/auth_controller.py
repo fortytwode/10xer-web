@@ -15,24 +15,20 @@ def login():
         if not user:
             # New user registration
             user = User.create(email)
-            # By default, assume isEMailVerify is False (not verified)
             is_email_verified = False
         else:
-            # Check email verification status (assuming stored in user_dict)
             is_email_verified = user.user_dict.get("isEmailVerify", False)
 
         if not is_email_verified:
-            # Send verification token email
             token = str(uuid.uuid4())
             User.save_email_token(email, token)
             send_verification_email(email, token)
-
-            # Redirect to verify request screen
             return redirect(url_for("auth.verify_request", provider="email", type="email"))
 
-        else:
-            # Email verified, redirect to dashboard or desired location
-            return redirect(url_for("dashboard.dashboard"))
+        # ✅ Log the user in so current_user will work
+        login_user(user)
+
+        return redirect(url_for("dashboard.dashboard"))
 
     return render_template("login.html")
 

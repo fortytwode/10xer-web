@@ -6,10 +6,8 @@
 <div
   class="bg-white p-4 sm:p-8 rounded-xl shadow-lg 
          w-full max-w-full sm:max-w-lg
-         mx-auto
-         "
+         mx-auto"
 >
-
   <h1 class="text-2xl font-bold mb-6 break-words">Set Up Your Integrations</h1>
 
   <!-- Facebook Integration -->
@@ -45,7 +43,7 @@
     <!-- Connect button -->
     <div
       id="facebook-connect"
-      class="hidden flex items-center min-w-max"
+      class="flex items-center min-w-max hidden"
     >
       <span
         class="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 mr-4 whitespace-nowrap"
@@ -59,87 +57,74 @@
       </a>
     </div>
   </div>
-
-  <!-- Optional: Uncomment if you want skip link -->
-  <!--
-  <a href="{{ url_for('dashboard.dashboard') }}" class="block mt-6 text-center text-teal-700 hover:underline font-semibold">
-    Skip and go to Dashboard
-  </a>
-  -->
-
 </div>
 
 <script>
-  // Store user info in localStorage
-  const userId = "{{ user.id }}";
-  const userEmail = "{{ user.email }}";
-  const facebookToken = "{{ accessToken | default('') }}";
-
-  if (userId) {
-    localStorage.setItem("userId", userId);
-  }
-  if (userEmail) {
-    localStorage.setItem("userEmail", userEmail);
-  }
-  if (facebookToken) {
-    localStorage.setItem("accessToken", facebookToken);
-  }
-
+  // Run after DOM loaded
   window.addEventListener("DOMContentLoaded", () => {
     const fbConnectDiv = document.getElementById("facebook-connect");
     const fbConnectedDiv = document.getElementById("facebook-connected");
     const disconnectBtn = document.getElementById("facebook-disconnect-btn");
 
-    function showConnected() {
-      fbConnectedDiv.classList.remove("hidden");
-      fbConnectDiv.classList.add("hidden");
-    }
-
-    function showConnect() {
+    // Fetch the current Facebook token from your new API
+    fetch("{{ url_for('integrations.api_facebook_token') }}", {
+      method: "GET",
+      credentials: "same-origin"
+    })
+    .then(response => {
+      if (!response.ok) throw new Error("No Facebook token found");
+      return response.json();
+    })
+    .then(data => {
+      if (data.success && data.access_token) {
+        // Show disconnect UI
+        fbConnectedDiv.classList.remove("hidden");
+        fbConnectDiv.classList.add("hidden");
+      } else {
+        // Show connect UI
+        fbConnectDiv.classList.remove("hidden");
+        fbConnectedDiv.classList.add("hidden");
+      }
+    })
+    .catch(() => {
+      // Show connect UI on error or no token
       fbConnectDiv.classList.remove("hidden");
       fbConnectedDiv.classList.add("hidden");
-    }
+    });
 
-    if (localStorage.getItem("accessToken")) {
-      showConnected();
-    } else {
-      showConnect();
-    }
+    // Disconnect button handler
+    disconnectBtn.addEventListener("click", async () => {
+      const confirmDisconnect = confirm(
+        "Are you sure you want to disconnect Facebook?"
+      );
+      if (!confirmDisconnect) return;
 
-    if (disconnectBtn) {
-      disconnectBtn.addEventListener("click", async () => {
-        const confirmDisconnect = confirm(
-          "Are you sure you want to disconnect Facebook?"
-        );
-        if (!confirmDisconnect) return;
-
-        try {
-          const response = await fetch(
-            "{{ url_for('integrations.facebook_disconnect') }}",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              credentials: "same-origin", // important for sending cookies/session
-            }
-          );
-
-          if (response.ok) {
-            localStorage.removeItem("accessToken");
-            alert("Facebook integration disconnected successfully.");
-            showConnect();
-          } else if (response.status === 404) {
-            alert("No Facebook integration found to disconnect.");
-          } else {
-            alert("Failed to disconnect Facebook integration.");
+      try {
+        const response = await fetch(
+          "{{ url_for('integrations.facebook_disconnect') }}",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "same-origin",
           }
-        } catch (error) {
-          console.error("Error:", error);
-          alert("An error occurred. Please try again.");
+        );
+
+        if (response.ok) {
+          alert("Facebook integration disconnected successfully.");
+          fbConnectDiv.classList.remove("hidden");
+          fbConnectedDiv.classList.add("hidden");
+        } else if (response.status === 404) {
+          alert("No Facebook integration found to disconnect.");
+        } else {
+          alert("Failed to disconnect Facebook integration.");
         }
-      });
-    }
+      } catch (error) {
+        console.error("Error disconnecting Facebook:", error);
+        alert("An error occurred. Please try again.");
+      }
+    });
   });
 </script>
 {% endblock %}

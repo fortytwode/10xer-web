@@ -137,3 +137,32 @@ def facebook_callback():
 
     flash("Facebook integration successful!", "success")
     return redirect(redirect_url, code=303)
+
+@integrations_bp.route("/api/facebook/token", methods=["GET"], endpoint="api_facebook_token")
+@login_required
+def get_facebook_token():
+    try:
+        # Fetch token from DB
+        print("current_user->", current_user.id)
+        token_obj = Token.get_by_user_id_and_type(current_user.id, "facebook")
+
+        if not token_obj:
+            return jsonify({
+                "success": False,
+                "message": "No Facebook access token found."
+            }), 404
+
+        return jsonify({
+            "success": True,
+            "user_id": current_user.id,
+            "token_type": "facebook",
+            "access_token": token_obj.token
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error fetching Facebook token for user {current_user.id}: {e}")
+        return jsonify({
+            "success": False,
+            "message": "Error retrieving token."
+        }), 500
+
