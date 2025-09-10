@@ -6,3 +6,5 @@ python-dotenv==1.0.1
 flask_cors==5.0.0
 requests==2.32.4
 sendgrid==6.12.4
+google-auth==2.27.0
+google-auth-httplib2==0.1.0
