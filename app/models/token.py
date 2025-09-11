@@ -1,6 +1,8 @@
 from bson import ObjectId
 from datetime import datetime, timezone
 
+from fastapi import logger
+
 class Token:
     collection = None  # Set this in your app setup: Token.collection = mongo.db.tokens
 
@@ -63,3 +65,18 @@ class Token:
     @classmethod
     def get_by_user_id_and_type(cls, user_id, token_type):
         return cls.get_latest(user_id, token_type)
+    
+    @classmethod
+    def get_by_token_and_type(cls, token, token_type):
+        """Get token by token value and type"""
+        try:
+            token_doc = cls.collection.find_one({
+                "token": token,
+                "token_type": token_type
+            })
+            if token_doc:
+                return cls(**token_doc)
+            return None
+        except Exception as e:
+            logger.error(f"Error getting token by value and type: {e}")
+            return None

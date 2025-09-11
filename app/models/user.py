@@ -112,7 +112,40 @@ class User(UserMixin):
         if user_data:
             return cls(user_data)
         return None
+    
+    @classmethod
+    def get_by_claude_id(cls, claude_id):
+        """Get user by Claude X-User-ID header"""
+        user_data = cls.collection.find_one({"claude_user_id": claude_id})
+        if user_data:
+            return cls(user_data)
+        return None
+    
+    @classmethod
+    def link_claude_user(email, claude_user_id):
+        """Link Claude user ID to existing user by email"""
+        result = User.collection.update_one(
+            {"email": email},
+            {"$set": {
+                "claude_user_id": claude_user_id,
+                "updatedAt": datetime.now(timezone.utc)
+            }}
+        )
+        return result.modified_count == 1
+    
+    @classmethod
+    def set_claude_id(cls, user_id, claude_user_id):
+        cls.collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"claude_user_id": claude_user_id}}
+        )
 
+    @classmethod
+    def get_by_claude_id(cls, claude_id):
+        user_data = cls.collection.find_one({"claude_user_id": claude_id})
+        if user_data:
+            return cls(user_data)
+        return None
 # import uuid
 # from flask_login import UserMixin
 # from datetime import datetime, timezone
