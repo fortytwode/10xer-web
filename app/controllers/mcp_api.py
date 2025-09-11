@@ -404,7 +404,26 @@ def sse_handler():
             result = facebook_list_ad_accounts_function(token_obj.token)
             return jsonify(result)
         
-        return jsonify({"success": False, "error": "Unknown tool"}), 400
+        # Handle other tools here
+        elif tool == "facebook_get_adaccount_insights":
+            user = User.get_by_claude_id(user_id)
+            if not user:
+                return jsonify({"success": False, "error": "User not found"}), 404
+            
+            token_obj = Token.get_by_user_id_and_type(user.id, "facebook")
+            if not token_obj:
+                return jsonify({"success": False, "error": "Facebook not connected"}), 403
+            
+            # You'd need to implement this function similar to facebook_list_ad_accounts_function
+            # result = facebook_get_adaccount_insights_function(token_obj.token, input_data)
+            # return jsonify(result)
+            return jsonify({"success": False, "error": "Tool not implemented yet"}), 501
+        
+        # If no tool matches, return error
+        return jsonify({"success": False, "error": f"Unknown tool: {tool}"}), 400
+    
+    # This should never be reached, but just in case
+    return jsonify({"success": False, "error": "Invalid request method"}), 405
 
 def facebook_list_ad_accounts_function(access_token: str) -> dict:
     """Helper function for Facebook ad accounts API call"""
