@@ -31,7 +31,7 @@ def integrations():
     return render_template("integrations.html", user=user)
 
 @integrations_bp.route("/api/mcp-auth/authorize")
-@login_required
+# @login_required
 def mcp_authorize():
     """Handle MCP authorization flow - redirect to Facebook OAuth"""
     # Get OAuth params from Claude

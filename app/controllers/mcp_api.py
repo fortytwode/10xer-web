@@ -9,7 +9,7 @@ from functools import wraps
 
 logger = logging.getLogger(__name__)
 
-mcp_api = Blueprint("mcp_api", __name__, url_prefix="/mcp-api")
+mcp_api = Blueprint("mcp_api", __name__)
 
 def mcp_auth_required(f):
     """Decorator to authenticate MCP requests using Bearer token"""

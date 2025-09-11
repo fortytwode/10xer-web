@@ -68,6 +68,14 @@ def create_app():
     def welcome():
         return jsonify({"message": "Welcome to the MongoDB-powered API"}), 200
     
+
+    # Add this route at the app level (not in a blueprint)
+    @app.route('/.well-known/oauth-authorization-server')
+    def oauth_discovery():
+        return jsonify({
+            "authorization_endpoint": "https://10xer-web-production.up.railway.app/integrations/api/mcp-auth/authorize",
+            "token_endpoint": "https://10xer-web-production.up.railway.app/mcp-api/token"
+        })
     
     @app.route('/images/<path:filename>')
     def images(filename):
