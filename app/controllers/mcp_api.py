@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 from app.models.user import User
 from app.models.token import Token
-# import uuid
-# import time
+import uuid
+import time
 
 mcp_api = Blueprint("mcp_api", __name__)
 
@@ -61,55 +61,55 @@ def get_facebook_token():
         "facebook_access_token": token_obj.token
     }), 200
 
-# @mcp_api.route("/sse", methods=["GET"])
-# def sse_stream():
-#     auth_header = request.headers.get("Authorization")
-#     print(f"AUTH HEADER RECEIVED: {auth_header}")
+@mcp_api.route("/sse", methods=["GET"])
+def sse_stream():
+    auth_header = request.headers.get("Authorization")
+    print(f"AUTH HEADER RECEIVED: {auth_header}")
     
-#     if not auth_header:
-#         return jsonify({
-#             "success": False,
-#             "message": "Missing 'Authorization' header."
-#         }), 401
+    if not auth_header:
+        return jsonify({
+            "success": False,
+            "message": "Missing 'Authorization' header."
+        }), 401
 
-#     parts = auth_header.split()
-#     if len(parts) != 2 or parts[0].lower() != "bearer":
-#         return jsonify({
-#             "success": False,
-#             "message": "Invalid Authorization header format. Expected 'Bearer <API_KEY>'"
-#         }), 401
+    parts = auth_header.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return jsonify({
+            "success": False,
+            "message": "Invalid Authorization header format. Expected 'Bearer <API_KEY>'"
+        }), 401
     
-#     api_key = parts[1]
-#     user = User.get_by_api_key(api_key)
-#     if not user:
-#         return jsonify({
-#             "success": False,
-#             "message": "Invalid or expired API key."
-#         }), 403
+    api_key = parts[1]
+    user = User.get_by_api_key(api_key)
+    if not user:
+        return jsonify({
+            "success": False,
+            "message": "Invalid or expired API key."
+        }), 403
     
-#     session_id = str(uuid.uuid4())  # generate a new unique session id per connection
+    session_id = str(uuid.uuid4())  # generate a new unique session id per connection
 
-#     def event_stream():
-#         # Send initial authentication confirmation message
-#         # initial_data = {
-#         #     "jsonrpc": "2.0",
-#         #     "method": "authConfirmation",
-#         #     "params": {
-#         #         "success": True,
-#         #         "message": f"Authentication successful for user: {user.email}",
-#         #         "email": user.email,
-#         #         "user_id": user.get_id()
-#         #     },  
-#         #     "id": 1
-#         # }
-#         # yield f"data: {json.dumps(initial_data)}\n\n"
-#         message = f"/mcp-api/messages?sessionId={session_id}"
-#         yield f"data: {message}\n\n"
+    def event_stream():
+        # Send initial authentication confirmation message
+        # initial_data = {
+        #     "jsonrpc": "2.0",
+        #     "method": "authConfirmation",
+        #     "params": {
+        #         "success": True,
+        #         "message": f"Authentication successful for user: {user.email}",
+        #         "email": user.email,
+        #         "user_id": user.get_id()
+        #     },  
+        #     "id": 1
+        # }
+        # yield f"data: {json.dumps(initial_data)}\n\n"
+        message = f"/mcp-api/messages?sessionId={session_id}"
+        yield f"data: {message}\n\n"
 
-#         # Heartbeat every 15 seconds
-#         while True:
-#             message = f"/mcp-api/messages?sessionId={session_id}"
-#             yield f"data: {message}\n\n"
-#             time.sleep(15)
+        # Heartbeat every 15 seconds
+        while True:
+            message = f"/mcp-api/messages?sessionId={session_id}"
+            yield f"data: {message}\n\n"
+            time.sleep(15)
 
-#     return Response(stream_with_context(event_stream()), mimetype='text/event-stream')
+    return Response(stream_with_context(event_stream()), mimetype='text/event-stream')
