@@ -19,7 +19,9 @@ def create_app():
     # Enable CORS for /api/* and /mcp-api/* endpoints with open origins
     CORS(app, resources={
         r"/api/*": {"origins": "*"},
-        r"/mcp-api/*": {"origins": "*"}  # Add this line
+        r"/mcp-api/*": {"origins": "*"},
+        r"/integrations/*": {"origins": "*"},  # Add this for OAuth endpoints
+        r"/claude/*": {"origins": "*"}         # Add this for manifest
     })
 
     # MongoDB setup
