@@ -78,7 +78,7 @@ def create_app():
             "token_endpoint": "https://10xer-web-production.up.railway.app/mcp-api/token"
         })
 
-    @app.route('/claude/manifest')
+    @app.route('/claude/manifest', methods=["GET", "POST"])
     def claude_manifest():
         return jsonify(CLAUDE_CONNECTOR_MANIFEST)
         
