@@ -108,7 +108,7 @@ def create_app():
     FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET")
 
     
-    @app.route("/claude/mcp-auth/authorize")
+    @app.route("/claude/mcp-auth/authorize", methods=["GET", "POST"])
     def mcp_authorize():
         fb_oauth_url = (
             "https://www.facebook.com/v16.0/dialog/oauth?"
