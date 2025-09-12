@@ -62,11 +62,13 @@ def create_app():
     from app.controllers.dashboard_controller import dashboard_bp
     from app.controllers.integrations_controller import integrations_bp
     from app.controllers.mcp_api import mcp_api  # ✅ Import your SSE API here
+    from app.controllers.integration_claude_controller import claude_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
     app.register_blueprint(integrations_bp, url_prefix="/integrations")
     app.register_blueprint(mcp_api, url_prefix="/mcp-api")  # Add this line back
+    app.register_blueprint(claude_bp, url_prefix="/claude")
 
     @app.route("/", methods=["GET"])
     def welcome():
@@ -81,6 +83,11 @@ def create_app():
             "token_endpoint": "https://10xer-web-production.up.railway.app/mcp-api/token",
             "registration_uri": "https://10xer-web-production.up.railway.app/claude/manifest"
         })
+    
+    # Alias route for Claude (it probes here as part of OAuth discovery)
+    @app.route('/.well-known/oauth-authorization-server/claude/manifest', methods=["GET"])
+    def oauth_manifest_alias():
+        return jsonify(CLAUDE_CONNECTOR_MANIFEST)
 
     @app.route('/claude/manifest', methods=["GET", "POST"])
     def claude_manifest():

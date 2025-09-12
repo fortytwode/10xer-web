@@ -4,14 +4,14 @@ CLAUDE_CONNECTOR_MANIFEST = {
   "version": "1.0.0",
   "connection": {
     "type": "oauth2",
-    "authorization_url": "https://10xer-web-production.up.railway.app/integrations/api/mcp-auth/authorize",
+    "authorization_url": "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize",
     "token_url": "https://10xer-web-production.up.railway.app/mcp-api/token",
     "scopes": ["ads_read", "ads_management", "business_management"]
   },
   "api": {
     "base_url": "https://10xer-web-production.up.railway.app/mcp-api",
     "authentication": {
-      "type": "oauth2_bearer"
+        "type": "oauth2_bearer"
     }
   },
   "tools": [
