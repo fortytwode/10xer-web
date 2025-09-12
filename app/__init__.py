@@ -108,7 +108,7 @@ def create_app():
     FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET")
 
     
-    @app.route("/claude/mcp-auth/authorize", methods=["GET", "POST"])
+    @app.route("/claude/mcp-auth/authorize", methods=["GET"])
     def mcp_authorize():
         fb_oauth_url = (
             "https://www.facebook.com/v16.0/dialog/oauth?"
@@ -121,9 +121,9 @@ def create_app():
     
     @app.route("/mcp-api/token", methods=["POST"])
     def token_exchange():
-        data = request.get_json(force=True)  # forces Flask to parse body as JSON
+        data = request.get_json(force=True)
         if not data or "code" not in data:
-            return jsonify({"error": "Missing code in request"}), 400
+            return jsonify({"error": "Missing code"}), 400
 
         code = data["code"]
 
@@ -138,25 +138,22 @@ def create_app():
             }
         )
         token_data = fb_token_response.json()
-        
-        # ✅ Save token in MongoDB
-        # Replace USER_ID with your logic to get the user connecting their Facebook
-        user_id = data.get("user_id")  # maybe you pass it from frontend
-        if user_id:
+
+        # Save token in MongoDB (optional)
+        if "access_token" in token_data:
             token.Token.create(
-                user_id=user_id,
+                user_id="CLAUDE_USER_ID",  # optional placeholder if you want to save
                 token_type="facebook",
-                token=token_data.get("access_token"),
+                token=token_data["access_token"],
                 extra_data=token_data
             )
 
-        # Redirect popup back to Claude MCP so it closes
-        redirect_url = (
-            f"https://claude.ai/mcp-api/oauth/callback"
-            f"?access_token={token_data['access_token']}"
-            f"&expires_in={token_data.get('expires_in')}"
-        )
-        return redirect(redirect_url)
+        # Return JSON (Claude MCP popup closes automatically)
+        return jsonify({
+            "access_token": token_data.get("access_token"),
+            "expires_in": token_data.get("expires_in"),
+            "refresh_token": token_data.get("refresh_token")
+        })
         
     @app.route('/images/<path:filename>')
     def images(filename):

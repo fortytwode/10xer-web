@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, Response, stream_with_context
+from flask import Blueprint, request, jsonify, Response, stream_with_context, redirect
 from app.models.user import User
 from app.models.token import Token
 import uuid
@@ -58,51 +58,43 @@ def mcp_auth_required(f):
 def mcp_token_exchange():
     """Exchange MCP authorization code for access token"""
     try:
-        logger.info("MCP token exchange request received")
         request_data = request.get_json()
         code = request_data.get("code")
-        
         if not code:
-            logger.error("Missing authorization code")
             return jsonify({"error": "Missing authorization code"}), 400
-        
-        logger.info(f"Looking for MCP code: {code}")
-        
+
         # Find the MCP code token in database
         mcp_token_obj = Token.get_by_token_and_type(code, "mcp_code")
         if not mcp_token_obj:
-            logger.error(f"Invalid authorization code: {code}")
             return jsonify({"error": "Invalid authorization code"}), 401
-        
-        # Get the associated Facebook token
+
         facebook_token = mcp_token_obj.extra_data.get("facebook_access_token")
         if not facebook_token:
-            logger.error("No Facebook token found in MCP code")
             return jsonify({"error": "No associated Facebook token found"}), 401
-        
-        # Generate access token for MCP
+
+        # Generate MCP access token
         access_token = str(uuid.uuid4())
-        
-        logger.info(f"Creating MCP access token: {access_token}")
-        
-        # Store MCP access token with same user_id as the code
+
+        # Store MCP access token
         Token.create(
-            user_id=mcp_token_obj.user_id,  # Use same user_id from the code token
+            user_id=mcp_token_obj.user_id,
             token_type="mcp_access",
             token=access_token,
             extra_data={"facebook_access_token": facebook_token}
         )
-        
-        # Clean up the authorization code
+
+        # Clean up the code token
         Token.collection.delete_one({"_id": mcp_token_obj.id})
-        
-        logger.info("MCP token exchange successful")
-        return jsonify({
-            "access_token": access_token,
-            "token_type": "Bearer",
-            "expires_in": 3600  # 1 hour
-        })
-        
+
+        # ✅ Redirect back to Claude popup
+        redirect_url = (
+            f"https://claude.ai/mcp-api/oauth/callback"
+            f"?access_token={access_token}"
+            f"&token_type=Bearer"
+            f"&expires_in=3600"
+        )
+        return redirect(redirect_url)
+
     except Exception as e:
         logger.error(f"Error in MCP token exchange: {e}", exc_info=True)
         return jsonify({"error": "Token exchange failed"}), 500
