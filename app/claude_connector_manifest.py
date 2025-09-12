@@ -1,19 +1,11 @@
 CLAUDE_CONNECTOR_MANIFEST = {
-  "name": "rocketship-meta-ads-connector",
-  "description": "Access your Meta Ad Accounts, insights, creatives, and performance data directly in Claude.",
+  "name": "Facebook Ads Connector",
+  "description": "Access Facebook Ads data",
   "version": "1.0.0",
   "connection": {
-    "type": "oauth2",
-    "authorization_url": "https://10xer-web-production.up.railway.app/integrations/api/mcp-auth/authorize",
-    "token_url": "https://10xer-web-production.up.railway.app/mcp-api/token",  # Fixed URL
-    "client_id": "claude-connector",  # Add this line
-    "scopes": ["ads_read", "ads_management", "business_management"]
-  },
-  "api": {
-    "base_url": "https://10xer-web-production.up.railway.app/mcp-api",
-    "authentication": {
-      "type": "oauth2_bearer"
-    }
+      "type": "oauth2",
+      "authorization_url": "https://10xer-web-production.up.railway.app/integrations/api/mcp-auth/authorize",
+      "token_url": "https://10xer-web-production.up.railway.app/mcp-api/token"
   },
   "tools": [
     {

@@ -32,11 +32,15 @@ def integrations():
 
 @integrations_bp.route("/api/mcp-auth/authorize")
 def mcp_authorize():
+    logger.info(f"MCP Authorization request from {request.remote_addr}")
+    logger.info(f"Args: {dict(request.args)}")
+    
     client_id = request.args.get("client_id")
     redirect_uri = request.args.get("redirect_uri")
     state = request.args.get("state")
     
     if not all([client_id, redirect_uri, state]):
+        logger.error("Missing OAuth parameters")
         return jsonify({"error": "Missing OAuth parameters"}), 400
     
     # Store params and redirect directly to Facebook OAuth
@@ -51,6 +55,7 @@ def mcp_authorize():
     
     fb_auth_url = f"https://www.facebook.com/v23.0/dialog/oauth?client_id={FB_CLIENT_ID}&redirect_uri={FB_REDIRECT_URI}&scope=ads_read,ads_management,business_management&response_type=code&state={fb_state}"
     
+    logger.info(f"Redirecting to Facebook OAuth: {fb_auth_url}")
     return redirect(fb_auth_url)
 
 # @integrations_bp.route("/api/mcp-auth/authorize")
@@ -232,11 +237,16 @@ def facebook_connect():
 #     return redirect(redirect_url, code=303)
 
 @integrations_bp.route("/auth/callback")
-@login_required
-def facebook_callback():
+def facebook_callback():  # Remove @login_required decorator
+    logger.info(f"Facebook callback received from {request.remote_addr}")
+    
     error = request.args.get("error")
     if error:
         logger.error(f"Facebook OAuth error: {error}")
+        # For MCP flow, return JSON instead of flash/template
+        mcp_redirect_uri = session.get("mcp_redirect_uri")
+        if mcp_redirect_uri:
+            return jsonify({"error": f"Facebook OAuth error: {error}"}), 400
         flash(f"Facebook OAuth error: {error}", "danger")
         return render_template("error.html", message=error), 400
 
@@ -246,10 +256,16 @@ def facebook_callback():
     stored_state = session.get('fb_oauth_state')
     if not state or state != stored_state:
         logger.warning(f"Invalid OAuth state. Received: {state}, Expected: {stored_state}")
+        mcp_redirect_uri = session.get("mcp_redirect_uri")
+        if mcp_redirect_uri:
+            return jsonify({"error": "Invalid OAuth state"}), 400
         abort(400, description="Invalid OAuth state")
 
     if not code:
         logger.warning("Missing OAuth code in callback")
+        mcp_redirect_uri = session.get("mcp_redirect_uri")
+        if mcp_redirect_uri:
+            return jsonify({"error": "Missing OAuth code"}), 400
         flash("Missing OAuth code", "warning")
         return redirect(url_for("integrations.integrations"))
 
@@ -267,10 +283,16 @@ def facebook_callback():
         token_response = resp.json()
     except requests.RequestException as e:
         logger.error(f"Exception during token request: {e}")
+        mcp_redirect_uri = session.get("mcp_redirect_uri")
+        if mcp_redirect_uri:
+            return jsonify({"error": "Failed to retrieve access token from Facebook"}), 500
         flash("Failed to retrieve access token from Facebook", "danger")
         return render_template("error.html", message="Failed to retrieve access token from Facebook"), 500
     except ValueError as e:
         logger.error(f"Invalid JSON response from Facebook token endpoint: {e}")
+        mcp_redirect_uri = session.get("mcp_redirect_uri")
+        if mcp_redirect_uri:
+            return jsonify({"error": "Invalid response from Facebook"}), 500
         flash("Invalid response from Facebook", "danger")
         return render_template("error.html", message="Failed to parse access token response"), 500
 
@@ -279,36 +301,26 @@ def facebook_callback():
 
     if not access_token:
         logger.error(f"No access token in response: {token_response}")
+        mcp_redirect_uri = session.get("mcp_redirect_uri")
+        if mcp_redirect_uri:
+            return jsonify({"error": "No access token received from Facebook"}), 400
         flash("Failed to retrieve access token from Facebook", "danger")
         return render_template("error.html", message="No access token received from Facebook"), 400
-
-    user = User.get(current_user.id)
-    if not user:
-        logger.error(f"Current user not found with id {current_user.id}")
-        abort(404)
-
-    # Save token to tokens table
-    Token.create(
-        user_id=user.id,
-        token_type="facebook",
-        token=access_token
-    )
-
-    # Clear OAuth state from session after successful auth
-    session.pop('fb_oauth_state', None)
 
     # Check if this is part of MCP flow
     mcp_redirect_uri = session.get("mcp_redirect_uri")
     mcp_state = session.get("mcp_state")
     
     if mcp_redirect_uri and mcp_state:
-        # This is an MCP authorization flow
+        # This is an MCP authorization flow - handle without authenticated user
+        logger.info("Processing MCP OAuth flow")
+        
         # Generate authorization code for Claude
         mcp_code = str(uuid.uuid4())
         
-        # Store MCP authorization code with Facebook token
+        # Store MCP authorization code with Facebook token (without user_id for now)
         Token.create(
-            user_id=current_user.id,
+            user_id="temp_mcp_user",  # Temporary placeholder
             token_type="mcp_code",
             token=mcp_code,
             extra_data={"facebook_access_token": access_token}
@@ -319,19 +331,141 @@ def facebook_callback():
         session.pop("mcp_state", None)
         session.pop("mcp_code_challenge", None)
         session.pop("mcp_client_id", None)
+        session.pop('fb_oauth_state', None)
         
         # Redirect back to Claude with authorization code
         logger.info(f"MCP OAuth flow completed, redirecting to Claude: {mcp_redirect_uri}")
         return redirect(f"{mcp_redirect_uri}?code={mcp_code}&state={mcp_state}")
     
     else:
-        # Regular web app integration flow
+        # Regular web app integration flow - requires authenticated user
+        if not current_user.is_authenticated:
+            logger.error("Regular flow requires authenticated user")
+            return redirect(url_for("auth.login"))
+            
+        user = User.get(current_user.id)
+        if not user:
+            logger.error(f"Current user not found with id {current_user.id}")
+            abort(404)
+
+        # Save token to tokens table
+        Token.create(
+            user_id=user.id,
+            token_type="facebook",
+            token=access_token
+        )
+
+        # Clear OAuth state from session after successful auth
+        session.pop('fb_oauth_state', None)
+        
         session_id = str(uuid.uuid4())
         redirect_url = url_for("dashboard.dashboard", session_id=session_id)
         logger.info(f"Facebook OAuth callback successful, redirecting to: {redirect_url}")
         
         flash("Facebook integration successful!", "success")
         return redirect(redirect_url, code=303)
+
+# @integrations_bp.route("/auth/callback")
+# @login_required
+# def facebook_callback():
+#     error = request.args.get("error")
+#     if error:
+#         logger.error(f"Facebook OAuth error: {error}")
+#         flash(f"Facebook OAuth error: {error}", "danger")
+#         return render_template("error.html", message=error), 400
+
+#     code = request.args.get("code")
+#     state = request.args.get("state")
+
+#     stored_state = session.get('fb_oauth_state')
+#     if not state or state != stored_state:
+#         logger.warning(f"Invalid OAuth state. Received: {state}, Expected: {stored_state}")
+#         abort(400, description="Invalid OAuth state")
+
+#     if not code:
+#         logger.warning("Missing OAuth code in callback")
+#         flash("Missing OAuth code", "warning")
+#         return redirect(url_for("integrations.integrations"))
+
+#     token_url = "https://graph.facebook.com/v23.0/oauth/access_token"
+#     params = {
+#         "client_id": FB_CLIENT_ID,
+#         "redirect_uri": FB_REDIRECT_URI,
+#         "client_secret": FB_CLIENT_SECRET,
+#         "code": code,
+#     }
+
+#     try:
+#         resp = requests.get(token_url, params=params, timeout=10)
+#         resp.raise_for_status()
+#         token_response = resp.json()
+#     except requests.RequestException as e:
+#         logger.error(f"Exception during token request: {e}")
+#         flash("Failed to retrieve access token from Facebook", "danger")
+#         return render_template("error.html", message="Failed to retrieve access token from Facebook"), 500
+#     except ValueError as e:
+#         logger.error(f"Invalid JSON response from Facebook token endpoint: {e}")
+#         flash("Invalid response from Facebook", "danger")
+#         return render_template("error.html", message="Failed to parse access token response"), 500
+
+#     access_token = token_response.get("access_token")
+#     expires_in = token_response.get("expires_in")
+
+#     if not access_token:
+#         logger.error(f"No access token in response: {token_response}")
+#         flash("Failed to retrieve access token from Facebook", "danger")
+#         return render_template("error.html", message="No access token received from Facebook"), 400
+
+#     user = User.get(current_user.id)
+#     if not user:
+#         logger.error(f"Current user not found with id {current_user.id}")
+#         abort(404)
+
+#     # Save token to tokens table
+#     Token.create(
+#         user_id=user.id,
+#         token_type="facebook",
+#         token=access_token
+#     )
+
+#     # Clear OAuth state from session after successful auth
+#     session.pop('fb_oauth_state', None)
+
+#     # Check if this is part of MCP flow
+#     mcp_redirect_uri = session.get("mcp_redirect_uri")
+#     mcp_state = session.get("mcp_state")
+    
+#     if mcp_redirect_uri and mcp_state:
+#         # This is an MCP authorization flow
+#         # Generate authorization code for Claude
+#         mcp_code = str(uuid.uuid4())
+        
+#         # Store MCP authorization code with Facebook token
+#         Token.create(
+#             user_id=current_user.id,
+#             token_type="mcp_code",
+#             token=mcp_code,
+#             extra_data={"facebook_access_token": access_token}
+#         )
+        
+#         # Clear MCP session data
+#         session.pop("mcp_redirect_uri", None)
+#         session.pop("mcp_state", None)
+#         session.pop("mcp_code_challenge", None)
+#         session.pop("mcp_client_id", None)
+        
+#         # Redirect back to Claude with authorization code
+#         logger.info(f"MCP OAuth flow completed, redirecting to Claude: {mcp_redirect_uri}")
+#         return redirect(f"{mcp_redirect_uri}?code={mcp_code}&state={mcp_state}")
+    
+#     else:
+#         # Regular web app integration flow
+#         session_id = str(uuid.uuid4())
+#         redirect_url = url_for("dashboard.dashboard", session_id=session_id)
+#         logger.info(f"Facebook OAuth callback successful, redirecting to: {redirect_url}")
+        
+#         flash("Facebook integration successful!", "success")
+#         return redirect(redirect_url, code=303)
 
 @integrations_bp.route("/api/facebook/token", methods=["GET"], endpoint="api_facebook_token")
 @login_required
