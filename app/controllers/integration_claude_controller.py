@@ -5,10 +5,14 @@ import base64
 from app.models.token import Token
 from bson import ObjectId
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
 claude_bp = Blueprint("claude_integrations", __name__, url_prefix="/claude")
+
+FB_CLIENT_ID = os.getenv("FACEBOOK_APP_ID")
+FB_CLIENT_SECRET = os.getenv("FACEBOOK_APP_SECRET")
 
 # ---------------- PKCE Helpers ----------------
 def generate_pkce_pair():
@@ -80,8 +84,6 @@ def mcp_callback():
         return jsonify({"error": "Invalid OAuth state"}), 400
 
     # Exchange code for access token (simulate or call Facebook)
-    FB_CLIENT_ID = "YOUR_FB_APP_ID"
-    FB_CLIENT_SECRET = "YOUR_FB_APP_SECRET"
     FB_REDIRECT_URI = "https://10xer-web-production.up.railway.app/claude/mcp-auth/callback"
 
     import requests
