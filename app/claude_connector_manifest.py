@@ -5,7 +5,7 @@ CLAUDE_CONNECTOR_MANIFEST = {
   "connection": {
     "type": "oauth2",
     "authorization_url": "https://10xer-web-production.up.railway.app/integrations/api/mcp-auth/authorize",
-    "token_url": "https://10xer-web-production.up.railway.app/mcp-api/token",
+    "token_url": "https://10xer-web-production.up.railway.app/mcp-api/token",  # Fixed URL
     "scopes": ["ads_read", "ads_management", "business_management"]
   },
   "api": {
@@ -218,4 +218,4 @@ CLAUDE_CONNECTOR_MANIFEST = {
       }
     }
   ]
-};
+}

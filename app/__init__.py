@@ -63,7 +63,7 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
     app.register_blueprint(integrations_bp, url_prefix="/integrations")
-    app.register_blueprint(mcp_api, url_prefix="/mcp-api")  # ✅ Register your /mcp-api/sse blueprint
+    app.register_blueprint(mcp_api, url_prefix="/mcp-api")  # Add this line back
 
     @app.route("/", methods=["GET"])
     def welcome():

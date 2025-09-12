@@ -33,7 +33,25 @@ class Token:
         return self.token_dict.get("expires_at")
 
     @classmethod
-    def create(cls, user_id, token_type, token):
+    # def create(cls, user_id, token_type, token):
+    #     if cls.collection is None:
+    #         raise RuntimeError("Token.collection is not initialized.")
+
+    #     now = datetime.now(timezone.utc)
+    #     token_data = {
+    #         "user_id": ObjectId(user_id) if isinstance(user_id, str) else user_id,
+    #         "token_type": token_type,
+    #         "token": token,
+    #         "created_at": now,
+    #         "expires_at": None
+    #     }
+
+    #     result = cls.collection.insert_one(token_data)
+    #     token_data["_id"] = result.inserted_id
+    #     return cls(token_data)
+
+    @classmethod
+    def create(cls, user_id, token_type, token, extra_data=None):
         if cls.collection is None:
             raise RuntimeError("Token.collection is not initialized.")
 
@@ -43,7 +61,8 @@ class Token:
             "token_type": token_type,
             "token": token,
             "created_at": now,
-            "expires_at": None
+            "expires_at": None,
+            "extra_data": extra_data or {}
         }
 
         result = cls.collection.insert_one(token_data)
@@ -75,8 +94,9 @@ class Token:
                 "token_type": token_type
             })
             if token_doc:
-                return cls(**token_doc)
+                return cls(token_doc)  # Pass as single argument, not **kwargs
             return None
         except Exception as e:
-            logger.error(f"Error getting token by value and type: {e}")
+            import logging
+            logging.getLogger(__name__).error(f"Error getting token by value and type: {e}")
             return None
