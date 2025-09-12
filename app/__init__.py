@@ -15,6 +15,14 @@ def create_app():
 
     # Enable CORS for API routes
     # CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+    # Secure session cookie settings for Claude cross-origin
+    app.config.update(
+        SECRET_KEY=Config.SECRET_KEY,
+        SESSION_COOKIE_SECURE=True,        # Required for HTTPS
+        SESSION_COOKIE_SAMESITE="None",    # Needed for cross-origin (Claude -> your server)
+        SESSION_COOKIE_HTTPONLY=True
+    )
     
     # Enable CORS for /api/* and /mcp-api/* endpoints with open origins
     CORS(app, resources={
@@ -76,10 +84,10 @@ def create_app():
     
 
     # Add this route at the app level (not in a blueprint)
-    @app.route('/.well-known/oauth-authorization-server')
+    @app.route('/.well-known/oauth-authorization-server', methods=["GET"])
     def oauth_discovery():
         return jsonify({
-            "authorization_endpoint": "https://10xer-web-production.up.railway.app/integrations/api/mcp-auth/authorize",
+            "authorization_endpoint": "https://10xer-web-production.up.railway.app/claude/api/mcp-auth/authorize",
             "token_endpoint": "https://10xer-web-production.up.railway.app/mcp-api/token",
             "registration_uri": "https://10xer-web-production.up.railway.app/claude/manifest"
         })
