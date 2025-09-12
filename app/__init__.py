@@ -20,9 +20,10 @@ def create_app():
     CORS(app, resources={
         r"/api/*": {"origins": "*"},
         r"/mcp-api/*": {"origins": "*"},
-        r"/integrations/*": {"origins": "*"},  # Add this for OAuth endpoints
-        r"/claude/*": {"origins": "*"}         # Add this for manifest
-    })
+        r"/integrations/*": {"origins": "*"},
+        r"/claude/*": {"origins": "*"},
+        r"/.well-known/*": {"origins": "*"}
+    }, supports_credentials=True)
 
     # MongoDB setup
     mongo_client = MongoClient(app.config["MONGO_URI"])

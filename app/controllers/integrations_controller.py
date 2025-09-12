@@ -32,24 +32,14 @@ def integrations():
 
 @integrations_bp.route("/api/mcp-auth/authorize")
 def mcp_authorize():
-    # Get OAuth params from Claude
     client_id = request.args.get("client_id")
     redirect_uri = request.args.get("redirect_uri")
     state = request.args.get("state")
     
-    if not client_id or not redirect_uri or not state:
-        return "Missing OAuth parameters", 400
+    if not all([client_id, redirect_uri, state]):
+        return jsonify({"error": "Missing OAuth parameters"}), 400
     
-    # Check if user is authenticated
-    if not current_user.is_authenticated:
-        # Redirect to login with MCP params preserved
-        login_url = url_for('auth.login', 
-                          mcp_redirect=redirect_uri, 
-                          mcp_state=state, 
-                          mcp_client=client_id)
-        return redirect(login_url)
-    
-    # User is authenticated - start Facebook OAuth flow
+    # Store params and redirect directly to Facebook OAuth
     session.update({
         'mcp_redirect_uri': redirect_uri,
         'mcp_state': state,
@@ -59,15 +49,79 @@ def mcp_authorize():
     fb_state = str(uuid.uuid4())
     session['fb_oauth_state'] = fb_state
     
-    fb_auth_url = (
-        f"https://www.facebook.com/v23.0/dialog/oauth?"
-        f"client_id={FB_CLIENT_ID}&"
-        f"redirect_uri={FB_REDIRECT_URI}&"
-        f"scope=ads_read,ads_management,business_management,pages_read_engagement,pages_manage_ads&"
-        f"response_type=code&"
-        f"state={fb_state}"
-    )
+    fb_auth_url = f"https://www.facebook.com/v23.0/dialog/oauth?client_id={FB_CLIENT_ID}&redirect_uri={FB_REDIRECT_URI}&scope=ads_read,ads_management,business_management&response_type=code&state={fb_state}"
+    
     return redirect(fb_auth_url)
+
+# @integrations_bp.route("/api/mcp-auth/authorize")
+# def mcp_authorize():
+#     logger.info(f"MCP Authorization request received from {request.remote_addr}")
+#     logger.info(f"Request args: {dict(request.args)}")
+#     logger.info(f"Request headers: {dict(request.headers)}")
+    
+#     # Get OAuth params from Claude
+#     client_id = request.args.get("client_id")
+#     redirect_uri = request.args.get("redirect_uri")
+#     state = request.args.get("state")
+    
+#     logger.info(f"OAuth params - client_id: {client_id}, redirect_uri: {redirect_uri}, state: {state}")
+    
+#     if not client_id or not redirect_uri or not state:
+#         logger.error(f"Missing OAuth parameters - client_id: {bool(client_id)}, redirect_uri: {bool(redirect_uri)}, state: {bool(state)}")
+#         return jsonify({"error": "Missing OAuth parameters", "details": {
+#             "client_id": bool(client_id),
+#             "redirect_uri": bool(redirect_uri), 
+#             "state": bool(state)
+#         }}), 400
+    
+#     # Check if user is authenticated
+#     logger.info(f"User authenticated: {current_user.is_authenticated}")
+    
+#     if not current_user.is_authenticated:
+#         # Store MCP params in session for later
+#         session.update({
+#             'mcp_redirect_uri': redirect_uri,
+#             'mcp_state': state,
+#             'mcp_client_id': client_id
+#         })
+        
+#         # Redirect to login with MCP params preserved
+#         login_url = url_for('auth.login', 
+#                           mcp_redirect=redirect_uri, 
+#                           mcp_state=state, 
+#                           mcp_client=client_id)
+        
+#         logger.info(f"Redirecting unauthenticated user to: {login_url}")
+#         return redirect(login_url)
+    
+#     # User is authenticated - start Facebook OAuth flow
+#     logger.info("User is authenticated, starting Facebook OAuth flow")
+    
+#     # Check for Facebook credentials
+#     if not FB_CLIENT_ID or not FB_CLIENT_SECRET:
+#         logger.error("Facebook credentials not configured")
+#         return jsonify({"error": "Facebook integration not configured"}), 500
+    
+#     session.update({
+#         'mcp_redirect_uri': redirect_uri,
+#         'mcp_state': state,
+#         'mcp_client_id': client_id
+#     })
+    
+#     fb_state = str(uuid.uuid4())
+#     session['fb_oauth_state'] = fb_state
+    
+#     fb_auth_url = (
+#         f"https://www.facebook.com/v23.0/dialog/oauth?"
+#         f"client_id={FB_CLIENT_ID}&"
+#         f"redirect_uri={FB_REDIRECT_URI}&"
+#         f"scope=ads_read,ads_management,business_management,pages_read_engagement,pages_manage_ads&"
+#         f"response_type=code&"
+#         f"state={fb_state}"
+#     )
+    
+#     logger.info(f"Redirecting to Facebook OAuth: {fb_auth_url}")
+#     return redirect(fb_auth_url)
 
 @integrations_bp.route("/facebook/disconnect", methods=["POST"])
 @login_required
