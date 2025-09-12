@@ -31,36 +31,42 @@ def integrations():
     return render_template("integrations.html", user=user)
 
 @integrations_bp.route("/api/mcp-auth/authorize")
-# @login_required
 def mcp_authorize():
-    """Handle MCP authorization flow - redirect to Facebook OAuth"""
     # Get OAuth params from Claude
     client_id = request.args.get("client_id")
-    redirect_uri = request.args.get("redirect_uri")  # Claude's callback URL
+    redirect_uri = request.args.get("redirect_uri")
     state = request.args.get("state")
-    code_challenge = request.args.get("code_challenge")
-
-    # Save MCP params for later use in callback
-    session['mcp_state'] = state
-    session['mcp_redirect_uri'] = redirect_uri
-    session['mcp_code_challenge'] = code_challenge
-    session['mcp_client_id'] = client_id
-
-    # Generate Facebook OAuth state
+    
+    if not client_id or not redirect_uri or not state:
+        return "Missing OAuth parameters", 400
+    
+    # Check if user is authenticated
+    if not current_user.is_authenticated:
+        # Redirect to login with MCP params preserved
+        login_url = url_for('auth.login', 
+                          mcp_redirect=redirect_uri, 
+                          mcp_state=state, 
+                          mcp_client=client_id)
+        return redirect(login_url)
+    
+    # User is authenticated - start Facebook OAuth flow
+    session.update({
+        'mcp_redirect_uri': redirect_uri,
+        'mcp_state': state,
+        'mcp_client_id': client_id
+    })
+    
     fb_state = str(uuid.uuid4())
     session['fb_oauth_state'] = fb_state
-
-    # Redirect to Facebook OAuth
+    
     fb_auth_url = (
-        "https://www.facebook.com/v23.0/dialog/oauth?"
+        f"https://www.facebook.com/v23.0/dialog/oauth?"
         f"client_id={FB_CLIENT_ID}&"
         f"redirect_uri={FB_REDIRECT_URI}&"
-        "scope=ads_read,ads_management,business_management,pages_read_engagement,pages_manage_ads&"
-        "response_type=code&"
+        f"scope=ads_read,ads_management,business_management,pages_read_engagement,pages_manage_ads&"
+        f"response_type=code&"
         f"state={fb_state}"
     )
-    
-    logger.debug(f"MCP authorize: redirecting to Facebook OAuth with state={fb_state}")
     return redirect(fb_auth_url)
 
 @integrations_bp.route("/facebook/disconnect", methods=["POST"])

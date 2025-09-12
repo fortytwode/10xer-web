@@ -18,6 +18,32 @@ GOOGLE_REDIRECT_URI = os.getenv('GOOGLE_REDIRECT_URI', 'http://localhost:7777/ca
 
 GOOGLE_REDIRECT_LOGIN_SUCCESS = os.getenv('GOOGLE_REDIRECT_LOGIN_SUCCESS', 'http://localhost:7777/home')
 
+# @auth_bp.route("/login", methods=["GET", "POST"])
+# def login():
+#     if request.method == "POST":
+#         email = request.form["email"]
+#         user = User.get_by_email(email)
+
+#         if not user:
+#             # New user registration
+#             user = User.create(email)
+#             is_email_verified = False
+#         else:
+#             is_email_verified = user.user_dict.get("isEmailVerify", False)
+
+#         if not is_email_verified:
+#             token = str(uuid.uuid4())
+#             User.save_email_token(email, token)
+#             send_verification_email(email, token)
+#             return redirect(url_for("auth.verify_request", provider="email", type="email"))
+
+#         # ✅ Log the user in so current_user will work
+#         login_user(user)
+
+#         return redirect(url_for("dashboard.dashboard"))
+
+#     return render_template("login.html")
+
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -37,12 +63,48 @@ def login():
             send_verification_email(email, token)
             return redirect(url_for("auth.verify_request", provider="email", type="email"))
 
-        # ✅ Log the user in so current_user will work
+        # Log the user in so current_user will work
         login_user(user)
 
+        # Check if this is part of MCP flow
+        mcp_redirect = request.args.get('mcp_redirect')
+        mcp_state = request.args.get('mcp_state') 
+        mcp_client = request.args.get('mcp_client')
+        
+        if mcp_redirect and mcp_state:
+            # This is MCP flow - save params and start Facebook OAuth
+            session.update({
+                'mcp_redirect_uri': mcp_redirect,
+                'mcp_state': mcp_state,
+                'mcp_client_id': mcp_client
+            })
+            
+            # Start Facebook OAuth flow
+            fb_state = str(uuid.uuid4())
+            session['fb_oauth_state'] = fb_state
+            
+            fb_auth_url = (
+                f"https://www.facebook.com/v23.0/dialog/oauth?"
+                f"client_id={os.getenv('FACEBOOK_APP_ID')}&"
+                f"redirect_uri={os.getenv('FACEBOOK_REDIRECT_URI')}&"
+                f"scope=ads_read,ads_management,business_management,pages_read_engagement,pages_manage_ads&"
+                f"response_type=code&"
+                f"state={fb_state}"
+            )
+            return redirect(fb_auth_url)
+
+        # Regular login flow
         return redirect(url_for("dashboard.dashboard"))
 
-    return render_template("login.html")
+    # GET request - check for MCP params and preserve them
+    mcp_redirect = request.args.get('mcp_redirect')
+    mcp_state = request.args.get('mcp_state')
+    mcp_client = request.args.get('mcp_client')
+    
+    return render_template("login.html", 
+                         mcp_redirect=mcp_redirect, 
+                         mcp_state=mcp_state, 
+                         mcp_client=mcp_client)
 
 @auth_bp.route("/users/verify-request")
 def verify_request():
