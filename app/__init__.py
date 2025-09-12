@@ -5,6 +5,7 @@ from pymongo.errors import CollectionInvalid
 from flask_login import LoginManager
 from app.config import Config
 from app.models import user
+from app.claude_connector_manifest import CLAUDE_CONNECTOR_MANIFEST
 
 from app.models import user, token  # import token model here too
 
@@ -76,7 +77,11 @@ def create_app():
             "authorization_endpoint": "https://10xer-web-production.up.railway.app/integrations/api/mcp-auth/authorize",
             "token_endpoint": "https://10xer-web-production.up.railway.app/mcp-api/token"
         })
-    
+
+    @app.route('/claude/manifest')
+    def claude_manifest():
+        return jsonify(CLAUDE_CONNECTOR_MANIFEST)
+        
     @app.route('/images/<path:filename>')
     def images(filename):
         return send_from_directory('images', filename)
