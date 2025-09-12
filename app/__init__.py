@@ -89,7 +89,7 @@ def create_app():
     @app.route('/.well-known/oauth-authorization-server', methods=["GET"])
     def oauth_discovery():
         return jsonify({
-            "authorization_endpoint": "https://10xer-web-production.up.railway.app/claude/api/mcp-auth/authorize",
+            "authorization_endpoint": "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize",
             "token_endpoint": "https://10xer-web-production.up.railway.app/mcp-api/token",
             "registration_uri": "https://10xer-web-production.up.railway.app/claude/manifest"
         })
