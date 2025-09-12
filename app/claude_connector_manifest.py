@@ -237,12 +237,12 @@ CLAUDE_CONNECTOR_MANIFEST = {
         "authentication": {"type": "oauth2_bearer"}
     },
     "tools": [
-        {
-            "name": "facebook_list_ad_accounts",
-            "description": "List all Facebook ad accounts",
-            "method": "POST",
-            "endpoint": "/tools/facebook_list_ad_accounts",
-            "inputSchema": {"type": "object", "properties": {}, "required": []}
-        }
+        # {
+        #     "name": "facebook_list_ad_accounts",
+        #     "description": "List all Facebook ad accounts",
+        #     "method": "POST",
+        #     "endpoint": "/tools/facebook_list_ad_accounts",
+        #     "inputSchema": {"type": "object", "properties": {}, "required": []}
+        # }
     ]
 }

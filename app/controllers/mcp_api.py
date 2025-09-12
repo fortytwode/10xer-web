@@ -6,10 +6,14 @@ import time
 import requests
 import logging
 from functools import wraps
+import os
 
 logger = logging.getLogger(__name__)
 
 mcp_api = Blueprint("mcp_api", __name__)
+
+FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID")
+FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET")
 
 def handle_facebook_api_error(response):
     """Standardize Facebook API error handling"""
@@ -54,50 +58,43 @@ def mcp_auth_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-@mcp_api.route("/token", methods=["POST"])
-def mcp_token_exchange():
-    """Exchange MCP authorization code for access token"""
-    try:
-        request_data = request.get_json()
-        code = request_data.get("code")
-        if not code:
-            return jsonify({"error": "Missing authorization code"}), 400
+@mcp_api.route("/token", methods=["GET", "POST"])
+def token_exchange():
+    """
+    Exchange Facebook code for access token and redirect back to Claude
+    """
+    data = request.args if request.method=="GET" else request.get_json(force=True)
+    code = data.get("code")
+    user_id = data.get("user_id")  # optional if you know the user
 
-        # Find the MCP code token in database
-        mcp_token_obj = Token.get_by_token_and_type(code, "mcp_code")
-        if not mcp_token_obj:
-            return jsonify({"error": "Invalid authorization code"}), 401
+    if not code:
+        return jsonify({"error": "Missing code"}), 400
 
-        facebook_token = mcp_token_obj.extra_data.get("facebook_access_token")
-        if not facebook_token:
-            return jsonify({"error": "No associated Facebook token found"}), 401
+    # Exchange code with Facebook
+    fb_response = requests.get(
+        "https://graph.facebook.com/v16.0/oauth/access_token",
+        params={
+            "client_id": FACEBOOK_APP_ID,
+            "client_secret": FACEBOOK_APP_SECRET,
+            "redirect_uri": "https://claude.ai/mcp-api/oauth/callback",
+            "code": code
+        }
+    )
 
-        # Generate MCP access token
-        access_token = str(uuid.uuid4())
+    fb_data = fb_response.json()
+    access_token = fb_data.get("access_token")
+    expires_in = fb_data.get("expires_in", 3600)
 
-        # Store MCP access token
-        Token.create(
-            user_id=mcp_token_obj.user_id,
-            token_type="mcp_access",
-            token=access_token,
-            extra_data={"facebook_access_token": facebook_token}
-        )
+    if not access_token:
+        return jsonify({"error": "Facebook token exchange failed", "details": fb_data}), 400
 
-        # Clean up the code token
-        Token.collection.delete_one({"_id": mcp_token_obj.id})
+    # Save token in MongoDB if user_id is provided
+    if user_id:
+        Token.create(user_id=user_id, token_type="facebook", token=access_token, extra_data=fb_data)
 
-        # ✅ Redirect back to Claude popup
-        redirect_url = (
-            f"https://claude.ai/mcp-api/oauth/callback"
-            f"?access_token={access_token}"
-            f"&token_type=Bearer"
-            f"&expires_in=3600"
-        )
-        return redirect(redirect_url)
-
-    except Exception as e:
-        logger.error(f"Error in MCP token exchange: {e}", exc_info=True)
-        return jsonify({"error": "Token exchange failed"}), 500
+    # ✅ Redirect popup to Claude to close it
+    redirect_url = f"https://claude.ai/mcp-api/oauth/callback?access_token={access_token}&token_type=Bearer&expires_in={expires_in}"
+    return redirect(redirect_url)
 
 @mcp_api.route("/facebook_token", methods=["GET"])
 def get_facebook_token():
