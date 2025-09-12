@@ -11,6 +11,27 @@ logger = logging.getLogger(__name__)
 
 mcp_api = Blueprint("mcp_api", __name__)
 
+def handle_facebook_api_error(response):
+    """Standardize Facebook API error handling"""
+    try:
+        if response.status_code == 400:
+            error_data = response.json()
+            if error_data.get('error', {}).get('code') == 190:
+                return jsonify({"error": "Facebook token expired", "code": "TOKEN_EXPIRED"}), 401
+        
+        return jsonify({
+            "error": "Facebook API error",
+            "status_code": response.status_code,
+            "details": response.text
+        }), response.status_code
+    except:
+        # If we can't parse the error response, return a generic error
+        return jsonify({
+            "error": "Facebook API error",
+            "status_code": response.status_code,
+            "details": "Unable to parse error details"
+        }), response.status_code
+
 def mcp_auth_required(f):
     """Decorator to authenticate MCP requests using Bearer token"""
     @wraps(f)
@@ -37,28 +58,36 @@ def mcp_auth_required(f):
 def mcp_token_exchange():
     """Exchange MCP authorization code for access token"""
     try:
+        logger.info("MCP token exchange request received")
         request_data = request.get_json()
         code = request_data.get("code")
         
         if not code:
+            logger.error("Missing authorization code")
             return jsonify({"error": "Missing authorization code"}), 400
+        
+        logger.info(f"Looking for MCP code: {code}")
         
         # Find the MCP code token in database
         mcp_token_obj = Token.get_by_token_and_type(code, "mcp_code")
         if not mcp_token_obj:
+            logger.error(f"Invalid authorization code: {code}")
             return jsonify({"error": "Invalid authorization code"}), 401
         
         # Get the associated Facebook token
         facebook_token = mcp_token_obj.extra_data.get("facebook_access_token")
         if not facebook_token:
+            logger.error("No Facebook token found in MCP code")
             return jsonify({"error": "No associated Facebook token found"}), 401
         
         # Generate access token for MCP
         access_token = str(uuid.uuid4())
         
-        # Store MCP access token
+        logger.info(f"Creating MCP access token: {access_token}")
+        
+        # Store MCP access token with same user_id as the code
         Token.create(
-            user_id=mcp_token_obj.user_id,
+            user_id=mcp_token_obj.user_id,  # Use same user_id from the code token
             token_type="mcp_access",
             token=access_token,
             extra_data={"facebook_access_token": facebook_token}
@@ -67,6 +96,7 @@ def mcp_token_exchange():
         # Clean up the authorization code
         Token.collection.delete_one({"_id": mcp_token_obj.id})
         
+        logger.info("MCP token exchange successful")
         return jsonify({
             "access_token": access_token,
             "token_type": "Bearer",
@@ -74,7 +104,7 @@ def mcp_token_exchange():
         })
         
     except Exception as e:
-        logger.error(f"Error in MCP token exchange: {e}")
+        logger.error(f"Error in MCP token exchange: {e}", exc_info=True)
         return jsonify({"error": "Token exchange failed"}), 500
 
 @mcp_api.route("/facebook_token", methods=["GET"])
@@ -132,39 +162,100 @@ def get_facebook_token():
         "facebook_access_token": token_obj.token
     }), 200
 
-@mcp_api.route("/tools/facebook_list_ad_accounts", methods=["POST"])
+# Add these missing implementations to your mcp_api.py file
+
+@mcp_api.route("/tools/facebook_get_adset_details", methods=["POST"])
 @mcp_auth_required
-def facebook_list_ad_accounts():
-    """List all Facebook ad accounts accessible to the user"""
+def facebook_get_adset_details():
+    """Get detailed information about a specific ad set"""
     try:
+        request_data = request.get_json()
+        adset_id = request_data.get("adset_id")
+        fields = request_data.get("fields", ["id", "name", "status", "daily_budget", "lifetime_budget", "targeting", "optimization_goal"])
+        
+        if not adset_id:
+            return jsonify({"error": "Missing required parameter: adset_id"}), 400
+        
         access_token = request.facebook_token
         if not access_token:
             return jsonify({"error": "No Facebook access token found"}), 401
         
         # Call Facebook Graph API
-        url = "https://graph.facebook.com/v18.0/me/adaccounts"
+        url = f"https://graph.facebook.com/v18.0/{adset_id}"
         params = {
             "access_token": access_token,
-            "fields": "id,name,account_status,currency,balance,amount_spent"
+            "fields": ",".join(fields)
         }
         
         response = requests.get(url, params=params)
-        response.raise_for_status()
+        
+        if response.status_code != 200:
+            return handle_facebook_api_error(response)
         
         data = response.json()
         return jsonify({
             "success": True,
-            "data": data.get("data", []),
-            "paging": data.get("paging", {})
+            "data": data
         })
         
-    except requests.RequestException as e:
-        logger.error(f"Facebook API error: {e}")
-        return jsonify({"error": "Failed to fetch ad accounts"}), 500
     except Exception as e:
-        logger.error(f"Error in facebook_list_ad_accounts: {e}")
+        logger.error(f"Error in facebook_get_adset_details: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
+@mcp_api.route("/tools/facebook_get_creative_asset_url_by_ad_id", methods=["POST"])
+@mcp_auth_required
+def facebook_get_creative_asset_url_by_ad_id():
+    """Get creative asset URLs and details for a specific ad"""
+    try:
+        request_data = request.get_json()
+        ad_id = request_data.get("ad_id")
+        
+        if not ad_id:
+            return jsonify({"error": "Missing required parameter: ad_id"}), 400
+        
+        access_token = request.facebook_token
+        if not access_token:
+            return jsonify({"error": "No Facebook access token found"}), 401
+        
+        # First get the ad's creative ID
+        ad_url = f"https://graph.facebook.com/v18.0/{ad_id}"
+        ad_params = {
+            "access_token": access_token,
+            "fields": "creative{id,name,object_story_spec,image_url,video_id,body,title,call_to_action_type,thumbnail_url}"
+        }
+        
+        ad_response = requests.get(ad_url, params=ad_params)
+        
+        if ad_response.status_code != 200:
+            return handle_facebook_api_error(ad_response)
+        
+        ad_data = ad_response.json()
+        creative_data = ad_data.get("creative", {})
+        
+        # Extract asset URLs from the creative data
+        assets = {
+            "ad_id": ad_id,
+            "creative_id": creative_data.get("id"),
+            "creative_name": creative_data.get("name"),
+            "image_url": creative_data.get("image_url"),
+            "thumbnail_url": creative_data.get("thumbnail_url"),
+            "video_id": creative_data.get("video_id"),
+            "body": creative_data.get("body"),
+            "title": creative_data.get("title"),
+            "call_to_action_type": creative_data.get("call_to_action_type"),
+            "object_story_spec": creative_data.get("object_story_spec")
+        }
+        
+        return jsonify({
+            "success": True,
+            "data": assets
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in facebook_get_creative_asset_url_by_ad_id: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+# Updated facebook_get_adaccount_insights with all parameters from manifest
 @mcp_api.route("/tools/facebook_get_adaccount_insights", methods=["POST"])
 @mcp_auth_required
 def facebook_get_adaccount_insights():
@@ -175,7 +266,9 @@ def facebook_get_adaccount_insights():
         fields = request_data.get("fields", [])
         level = request_data.get("level", "account")
         date_preset = request_data.get("date_preset", "last_30d")
+        time_range = request_data.get("time_range")
         breakdowns = request_data.get("breakdowns", [])
+        filtering = request_data.get("filtering", [])
         
         if not act_id or not fields:
             return jsonify({"error": "Missing required parameters: act_id and fields"}), 400
@@ -189,15 +282,26 @@ def facebook_get_adaccount_insights():
         params = {
             "access_token": access_token,
             "fields": ",".join(fields),
-            "level": level,
-            "date_preset": date_preset
+            "level": level
         }
         
+        # Add date parameters - prioritize time_range over date_preset
+        if time_range and 'since' in time_range and 'until' in time_range:
+            params["time_range"] = time_range
+        else:
+            params["date_preset"] = date_preset
+        
+        # Add optional parameters
         if breakdowns:
             params["breakdowns"] = ",".join(breakdowns)
         
+        if filtering:
+            params["filtering"] = filtering
+        
         response = requests.get(url, params=params)
-        response.raise_for_status()
+        
+        if response.status_code != 200:
+            return handle_facebook_api_error(response)
         
         data = response.json()
         return jsonify({
@@ -206,13 +310,11 @@ def facebook_get_adaccount_insights():
             "paging": data.get("paging", {})
         })
         
-    except requests.RequestException as e:
-        logger.error(f"Facebook API error: {e}")
-        return jsonify({"error": "Failed to fetch insights"}), 500
     except Exception as e:
         logger.error(f"Error in facebook_get_adaccount_insights: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
+# Updated facebook_get_ad_creatives with limit cap from manifest
 @mcp_api.route("/tools/facebook_get_ad_creatives", methods=["POST"])
 @mcp_auth_required
 def facebook_get_ad_creatives():
@@ -233,12 +335,14 @@ def facebook_get_ad_creatives():
         url = f"https://graph.facebook.com/v18.0/{act_id}/adcreatives"
         params = {
             "access_token": access_token,
-            "fields": "id,name,object_story_spec,image_url,video_id,body,title,call_to_action_type",
-            "limit": limit
+            "fields": "id,name,object_story_spec,image_url,video_id,body,title,call_to_action_type,thumbnail_url",
+            "limit": min(limit, 100)  # Cap at 100 as per manifest
         }
         
         response = requests.get(url, params=params)
-        response.raise_for_status()
+        
+        if response.status_code != 200:
+            return handle_facebook_api_error(response)
         
         data = response.json()
         return jsonify({
@@ -247,13 +351,60 @@ def facebook_get_ad_creatives():
             "paging": data.get("paging", {})
         })
         
-    except requests.RequestException as e:
-        logger.error(f"Facebook API error: {e}")
-        return jsonify({"error": "Failed to fetch ad creatives"}), 500
     except Exception as e:
         logger.error(f"Error in facebook_get_ad_creatives: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
+# Updated facebook_get_activities_by_adaccount with all parameters
+@mcp_api.route("/tools/facebook_get_activities_by_adaccount", methods=["POST"])
+@mcp_auth_required
+def facebook_get_activities_by_adaccount():
+    """Get activity logs for a specific ad account"""
+    try:
+        request_data = request.get_json()
+        act_id = request_data.get("act_id")
+        since = request_data.get("since")
+        until = request_data.get("until")
+        limit = request_data.get("limit", 25)
+        
+        if not act_id:
+            return jsonify({"error": "Missing required parameter: act_id"}), 400
+        
+        access_token = request.facebook_token
+        if not access_token:
+            return jsonify({"error": "No Facebook access token found"}), 401
+        
+        # Call Facebook Graph API
+        url = f"https://graph.facebook.com/v18.0/{act_id}/activities"
+        params = {
+            "access_token": access_token,
+            "fields": "event_type,event_time,object_id,object_name,object_type,translated_event_type,actor_name",
+            "limit": min(limit, 100)  # Cap at 100 as per manifest
+        }
+        
+        # Add date filters if provided
+        if since:
+            params["since"] = since
+        if until:
+            params["until"] = until
+        
+        response = requests.get(url, params=params)
+        
+        if response.status_code != 200:
+            return handle_facebook_api_error(response)
+        
+        data = response.json()
+        return jsonify({
+            "success": True,
+            "data": data.get("data", []),
+            "paging": data.get("paging", {})
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in facebook_get_activities_by_adaccount: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+# Updated facebook_get_details_of_ad_account to use standardized error handling
 @mcp_api.route("/tools/facebook_get_details_of_ad_account", methods=["POST"])
 @mcp_auth_required
 def facebook_get_details_of_ad_account():
@@ -278,7 +429,9 @@ def facebook_get_details_of_ad_account():
         }
         
         response = requests.get(url, params=params)
-        response.raise_for_status()
+        
+        if response.status_code != 200:
+            return handle_facebook_api_error(response)
         
         data = response.json()
         return jsonify({
@@ -286,50 +439,45 @@ def facebook_get_details_of_ad_account():
             "data": data
         })
         
-    except requests.RequestException as e:
-        logger.error(f"Facebook API error: {e}")
-        return jsonify({"error": "Failed to fetch ad account details"}), 500
     except Exception as e:
         logger.error(f"Error in facebook_get_details_of_ad_account: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-@mcp_api.route("/tools/facebook_get_activities_by_adaccount", methods=["POST"])
+# Updated facebook_get_campaign_details to use standardized error handling
+@mcp_api.route("/tools/facebook_get_campaign_details", methods=["POST"])
 @mcp_auth_required
-def facebook_get_activities_by_adaccount():
-    """Get activity logs for a specific ad account"""
+def facebook_get_campaign_details():
+    """Get detailed information about a specific campaign"""
     try:
         request_data = request.get_json()
-        act_id = request_data.get("act_id")
+        campaign_id = request_data.get("campaign_id")
+        fields = request_data.get("fields", ["id", "name", "objective", "status", "daily_budget", "lifetime_budget", "created_time"])
         
-        if not act_id:
-            return jsonify({"error": "Missing required parameter: act_id"}), 400
+        if not campaign_id:
+            return jsonify({"error": "Missing required parameter: campaign_id"}), 400
         
         access_token = request.facebook_token
         if not access_token:
             return jsonify({"error": "No Facebook access token found"}), 401
         
-        # Call Facebook Graph API
-        url = f"https://graph.facebook.com/v18.0/{act_id}/activities"
+        url = f"https://graph.facebook.com/v18.0/{campaign_id}"
         params = {
             "access_token": access_token,
-            "fields": "event_type,event_time,object_id,object_name,object_type,translated_event_type,actor_name"
+            "fields": ",".join(fields)
         }
         
         response = requests.get(url, params=params)
-        response.raise_for_status()
         
-        data = response.json()
+        if response.status_code != 200:
+            return handle_facebook_api_error(response)
+        
         return jsonify({
             "success": True,
-            "data": data.get("data", []),
-            "paging": data.get("paging", {})
+            "data": response.json()
         })
         
-    except requests.RequestException as e:
-        logger.error(f"Facebook API error: {e}")
-        return jsonify({"error": "Failed to fetch activities"}), 500
     except Exception as e:
-        logger.error(f"Error in facebook_get_activities_by_adaccount: {e}")
+        logger.error(f"Error in facebook_get_campaign_details: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
 @mcp_api.route("/sse", methods=["GET", "POST"])

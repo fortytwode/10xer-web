@@ -319,9 +319,17 @@ def facebook_callback():  # Remove @login_required decorator
         mcp_code = str(uuid.uuid4())
         
         # Store MCP authorization code with Facebook token (without user_id for now)
+        # Token.create(
+        #     user_id="temp_mcp_user",  # Temporary placeholder
+        #     token_type="mcp_code",
+        #     token=mcp_code,
+        #     extra_data={"facebook_access_token": access_token}
+        # )
+
+        from bson import ObjectId
         Token.create(
-            user_id="temp_mcp_user",  # Temporary placeholder
-            token_type="mcp_code",
+            user_id=ObjectId(),  # Generate a temporary ObjectId
+            token_type="mcp_code", 
             token=mcp_code,
             extra_data={"facebook_access_token": access_token}
         )

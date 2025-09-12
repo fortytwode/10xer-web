@@ -100,3 +100,22 @@ class Token:
             import logging
             logging.getLogger(__name__).error(f"Error getting token by value and type: {e}")
             return None
+        
+
+    @classmethod
+    def cleanup_expired_tokens(cls):
+        """Clean up expired MCP codes and tokens"""
+        from datetime import datetime, timezone, timedelta
+        
+        # Remove MCP codes older than 10 minutes
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
+        cls.collection.delete_many({
+            "token_type": "mcp_code",
+            "created_at": {"$lt": cutoff}
+        })
+        
+        # Remove expired access tokens
+        cls.collection.delete_many({
+            "token_type": "mcp_access",
+            "created_at": {"$lt": datetime.now(timezone.utc) - timedelta(hours=24)}
+        })
