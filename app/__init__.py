@@ -126,8 +126,8 @@ def create_app():
             return jsonify({"error": "Missing code in request"}), 400
 
         code = data["code"]
-        
-        # Exchange code with Facebook
+
+        # Exchange code for Facebook access token
         fb_token_response = requests.get(
             "https://graph.facebook.com/v16.0/oauth/access_token",
             params={
@@ -138,7 +138,25 @@ def create_app():
             }
         )
         token_data = fb_token_response.json()
-        return jsonify(token_data)
+        
+        # ✅ Save token in MongoDB
+        # Replace USER_ID with your logic to get the user connecting their Facebook
+        user_id = data.get("user_id")  # maybe you pass it from frontend
+        if user_id:
+            token.Token.create(
+                user_id=user_id,
+                token_type="facebook",
+                token=token_data.get("access_token"),
+                extra_data=token_data
+            )
+
+        # Redirect popup back to Claude MCP so it closes
+        redirect_url = (
+            f"https://claude.ai/mcp-api/oauth/callback"
+            f"?access_token={token_data['access_token']}"
+            f"&expires_in={token_data.get('expires_in')}"
+        )
+        return redirect(redirect_url)
         
     @app.route('/images/<path:filename>')
     def images(filename):
