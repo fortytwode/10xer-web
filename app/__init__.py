@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, redirect
 from flask_cors import CORS
 from pymongo import MongoClient
 from pymongo.errors import CollectionInvalid
@@ -8,6 +8,8 @@ from app.models import user
 from app.claude_connector_manifest import CLAUDE_CONNECTOR_MANIFEST
 
 from app.models import user, token  # import token model here too
+import os
+import requests
 
 def create_app():
     app = Flask(__name__)
@@ -100,6 +102,43 @@ def create_app():
     @app.route('/claude/manifest', methods=["GET", "POST"])
     def claude_manifest():
         return jsonify(CLAUDE_CONNECTOR_MANIFEST)
+    
+    
+    FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID")
+    FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET")
+
+    
+    @app.route("/claude/mcp-auth/authorize")
+    def mcp_authorize():
+        fb_oauth_url = (
+            "https://www.facebook.com/v16.0/dialog/oauth?"
+            f"client_id={FACEBOOK_APP_ID}"
+            "&response_type=code"
+            f"&redirect_uri=https://claude.ai/mcp-api/oauth/callback"
+            "&scope=ads_read,ads_management,business_management"
+        )
+        return redirect(fb_oauth_url)
+    
+    @app.route("/mcp-api/token", methods=["POST"])
+    def token_exchange():
+        data = request.get_json(force=True)  # forces Flask to parse body as JSON
+        if not data or "code" not in data:
+            return jsonify({"error": "Missing code in request"}), 400
+
+        code = data["code"]
+        
+        # Exchange code with Facebook
+        fb_token_response = requests.get(
+            "https://graph.facebook.com/v16.0/oauth/access_token",
+            params={
+                "client_id": FACEBOOK_APP_ID,
+                "client_secret": FACEBOOK_APP_SECRET,
+                "redirect_uri": "https://claude.ai/mcp-api/oauth/callback",
+                "code": code
+            }
+        )
+        token_data = fb_token_response.json()
+        return jsonify(token_data)
         
     @app.route('/images/<path:filename>')
     def images(filename):
