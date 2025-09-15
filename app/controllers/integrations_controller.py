@@ -30,6 +30,26 @@ def integrations():
         return redirect(url_for("dashboard.dashboard"))
     return render_template("integrations.html", user=user)
 
+@integrations_bp.route("/forward_token_to_10xer", methods=["POST"])
+@login_required
+def forward_token():
+    print("current_user->", current_user.id)
+    token_obj = Token.get_by_user_id_and_type(current_user.id, "facebook")
+    print("token_obj->", token_obj.token)
+    if not token_obj:
+        return jsonify({"error": "No token found"}), 404
+    response = requests.post(
+        "https://10xer-production.up.railway.app/trigger-token-fetch",
+        json={"access_token": token_obj.token, "user_id": current_user.id},
+        headers={"Authorization": "Bearer YOUR_SHARED_SECRET"},
+        timeout=5
+    )
+    print("response->", response)
+    if response.status_code == 200:
+        return jsonify({"status": "Token forwarded"})
+    else:
+        return jsonify({"error": "Failed to forward token"}), 500
+
 @integrations_bp.route("/api/mcp-auth/authorize")
 def mcp_authorize():
     logger.info(f"MCP Authorization request from {request.remote_addr}")
@@ -476,28 +496,55 @@ def facebook_callback():
         return redirect(redirect_url, code=303)
 
 @integrations_bp.route("/api/facebook/token", methods=["GET"], endpoint="api_facebook_token")
-@login_required
+# @login_required
 def get_facebook_token():
     try:
-        # Fetch token from DB
-        print("current_user->", current_user.id)
-        token_obj = Token.get_by_user_id_and_type(current_user.id, "facebook")
+        auth_header = request.headers.get("Authorization")
+        print("auth_header->", auth_header)
 
-        if not token_obj:
+        if auth_header:
+            # If Authorization header exists, use it as token
+            # Support both 'Bearer <token>' and bare token
+            if auth_header.startswith("Bearer "):
+                token = auth_header[len("Bearer "):].strip()
+            else:
+                token = auth_header.strip()
+
+            token_obj = Token.get_by_token_and_type(token, "facebook")
+            print("token_obj->", token_obj)
+
+            if not token_obj:
+                return jsonify({
+                    "success": False,
+                    "message": "Invalid or expired token."
+                }), 401
+
             return jsonify({
-                "success": False,
-                "message": "No Facebook access token found."
-            }), 404
+                "success": True,
+                "user_id": str(token_obj['user_id']),
+                "token_type": token_obj['token_type'],
+                "access_token": token_obj['token']
+            }), 200
 
-        return jsonify({
-            "success": True,
-            "user_id": current_user.id,
-            "token_type": "facebook",
-            "access_token": token_obj.token
-        }), 200
+        else:
+            # No Authorization header, fallback to old logic using current_user.id
+            token_obj = Token.get_by_user_id_and_type(current_user.id, "facebook")
+
+            if not token_obj:
+                return jsonify({
+                    "success": False,
+                    "message": "No Facebook access token found."
+                }), 404
+
+            return jsonify({
+                "success": True,
+                "user_id": current_user.id,
+                "token_type": "facebook",
+                "access_token": token_obj.token
+            }), 200
 
     except Exception as e:
-        logger.error(f"Error fetching Facebook token for user {current_user.id}: {e}")
+        logger.error(f"Error fetching Facebook token: {e}")
         return jsonify({
             "success": False,
             "message": "Error retrieving token."

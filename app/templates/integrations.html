@@ -57,6 +57,7 @@
       </a>
     </div>
   </div>
+  <button onclick="syncToken()">Sync Token</button>
 </div>
 
 <script>
@@ -126,5 +127,14 @@
       }
     });
   });
+
+  async function syncToken() {
+    const res = await fetch('forward_token_to_10xer', {
+      method: 'POST'
+    });
+
+    const data = await res.json();
+    alert(data.status || data.error);
+  }
 </script>
 {% endblock %}

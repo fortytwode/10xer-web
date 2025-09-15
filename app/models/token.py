@@ -94,7 +94,7 @@ class Token:
                 "token_type": token_type
             })
             if token_doc:
-                return cls(token_doc)  # Pass as single argument, not **kwargs
+                return token_doc  # Pass as single argument, not **kwargs
             return None
         except Exception as e:
             import logging
