@@ -151,6 +151,48 @@ def get_facebook_token():
         "facebook_access_token": token_obj.token
     }), 200
 
+@mcp_api.route("/facebook_token_by_user", methods=["GET"])
+def get_facebook_token_by_user():
+    user_id = request.args.get("userId")
+    print(f"User ID received from query: {user_id}")
+
+    if not user_id:
+        return jsonify({
+            "success": False,
+            "message": "Missing 'userId' query parameter."
+        }), 400
+
+    user = User.get(user_id)  # Use existing method
+    print(f"User fetched: {user}")
+
+    if not user:
+        return jsonify({
+            "success": False,
+            "message": "User not found."
+        }), 404
+
+    token_obj = Token.get_by_user_id_and_type(user.id, "facebook")
+    print(f"Token object fetched: {token_obj}")
+
+    if token_obj:
+        print(f"Token ID: {token_obj.id}")
+        print(f"User ID: {token_obj.user_id}")
+        print(f"Token Type: {token_obj.token_type}")
+        print(f"Access Token: {token_obj.token}")
+    else:
+        print("No token object found.")
+
+    if not token_obj:
+        return jsonify({
+            "success": False,
+            "message": "Facebook token not found for user."
+        }), 404
+
+    return jsonify({
+        "success": True,
+        "facebook_access_token": token_obj.token
+    }), 200
+
 # Add these missing implementations to your mcp_api.py file
 
 @mcp_api.route("/tools/facebook_get_adset_details", methods=["POST"])
