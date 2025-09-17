@@ -35,13 +35,26 @@ def integrations():
 def forward_token():
     print("current_user->", current_user.id)
     token_obj = Token.get_by_user_id_and_type(current_user.id, "facebook")
-    print("token_obj->", token_obj.token)
     if not token_obj:
         return jsonify({"error": "No token found"}), 404
+    
+    # Or directly get the 'session' cookie value
+    session_cookie = request.cookies.get('session')
+    print("Session cookie:", session_cookie)
+
+    # Build headers including 'session-id' with the full session cookie value (including the "session=" prefix)
+    # If you want to include the key, prefix it; otherwise just send the cookie value
+    session_id_header_value = f"session={session_cookie}" if session_cookie else ""
+
+    headers = {
+        "Authorization": "Bearer YOUR_SHARED_SECRET",
+        "session-id": session_id_header_value
+    }
+
     response = requests.post(
         "https://10xer-production.up.railway.app/trigger-token-fetch",
         json={"access_token": token_obj.token, "user_id": current_user.id},
-        headers={"Authorization": "Bearer YOUR_SHARED_SECRET"},
+        headers=headers,
         timeout=5
     )
     print("response->", response)
@@ -49,6 +62,26 @@ def forward_token():
         return jsonify({"status": "Token forwarded"})
     else:
         return jsonify({"error": "Failed to forward token"}), 500
+
+# @integrations_bp.route("/forward_token_to_10xer", methods=["POST"])
+# @login_required
+# def forward_token():
+#     print("current_user->", current_user.id)
+#     token_obj = Token.get_by_user_id_and_type(current_user.id, "facebook")
+#     print("token_obj->", token_obj.token)
+#     if not token_obj:
+#         return jsonify({"error": "No token found"}), 404
+#     response = requests.post(
+#         "https://10xer-production.up.railway.app/trigger-token-fetch",
+#         json={"access_token": token_obj.token, "user_id": current_user.id},
+#         headers={"Authorization": "Bearer YOUR_SHARED_SECRET"},
+#         timeout=5
+#     )
+#     print("response->", response)
+#     if response.status_code == 200:
+#         return jsonify({"status": "Token forwarded"})
+#     else:
+#         return jsonify({"error": "Failed to forward token"}), 500
 
 @integrations_bp.route("/api/mcp-auth/authorize")
 def mcp_authorize():
