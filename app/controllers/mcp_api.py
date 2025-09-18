@@ -224,6 +224,15 @@ def get_facebook_token_by_user():
         "facebook_access_token": token_obj.token
     }), 200
 
+# Get the server's public IP
+def get_server_public_ip():
+    try:
+        ip = requests.get('https://api.ipify.org').text.strip()
+        return ip
+    except Exception as e:
+        return f"Error: {e}"
+
+
 # Save or update user session
 @mcp_api.route('/save_user_session', methods=['POST'])
 def save_user_session():
@@ -233,27 +242,31 @@ def save_user_session():
 
     user_id = data.get("user_id")
     session_id = data.get("session_id")
-    ip_address = request.remote_addr
-    print("ip_address->", ip_address)
+    server_ip = get_server_public_ip()
+    print("Server Public IP ->", server_ip)
 
-    if not all([user_id, session_id, ip_address]):
+    if not all([user_id, session_id, server_ip]):
         return jsonify({"success": False, "message": "Missing required data"}), 400
 
     try:
-        UserSession.save_or_update(user_id, session_id, ip_address)
+        UserSession.save_or_update(user_id, session_id, server_ip)
     except Exception as e:
         return jsonify({"success": False, "message": f"Error saving session: {str(e)}"}), 500
 
-    return jsonify({"success": True, "message": "Session saved"})
+    return jsonify({"success": True, "message": "Session saved", "server_ip": server_ip})
+
 
 # Get latest session by IP
 @mcp_api.route('/get_latest_session_by_ip', methods=['GET'])
 def get_latest_session_by_ip():
-    ip_address = request.remote_addr
-    print("ip_address->", ip_address)
+    server_ip = get_server_public_ip()
+    print("Server Public IP ->", server_ip)
+
+    if not server_ip:
+        return jsonify({"success": False, "message": "Missing or invalid server IP"}), 400
 
     try:
-        session = UserSession.get_latest_session_by_ip(ip_address)
+        session = UserSession.get_latest_session_by_ip(server_ip)
     except Exception as e:
         return jsonify({"success": False, "message": f"Error fetching session: {str(e)}"}), 500
 
@@ -263,7 +276,8 @@ def get_latest_session_by_ip():
     return jsonify({
         "success": True,
         "session_id": session.session_id,
-        "user_id": str(session.user_id)  # 👈 Convert ObjectId to string
+        "user_id": str(session.user_id),
+        "server_ip": server_ip
     })
 # Save or update user session
 # @mcp_api.route('/save_user_session', methods=['POST'])
