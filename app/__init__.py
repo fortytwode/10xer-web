@@ -7,7 +7,7 @@ from app.config import Config
 from app.models import user
 from app.claude_connector_manifest import CLAUDE_CONNECTOR_MANIFEST
 
-from app.models import user, token  # import token model here too
+from app.models import user, token, user_session  # import token model here too
 import os
 import requests
 
@@ -58,6 +58,16 @@ def create_app():
 
     # Assign MongoDB tokens collection to Token model
     token.Token.collection = db["tokens"]
+
+
+    try:
+        db.create_collection("userSessions")
+        print("Collection 'tokens' created without schema validation.")
+    except CollectionInvalid:
+        print("Collection 'tokens' already exists.")
+
+    # Assign MongoDB tokens collection to Token model
+    user_session.UserSession.collection = db["userSessions"]
 
     # Flask-Login setup
     login_manager = LoginManager()

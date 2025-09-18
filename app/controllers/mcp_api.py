@@ -10,6 +10,7 @@ import requests
 import logging
 from functools import wraps
 import os
+from app.models.user_session import UserSession
 
 logger = logging.getLogger(__name__)
 
@@ -223,6 +224,99 @@ def get_facebook_token_by_user():
         "facebook_access_token": token_obj.token
     }), 200
 
+# Save or update user session
+@mcp_api.route('/save_user_session', methods=['POST'])
+def save_user_session():
+    data = request.get_json()
+    if not data:
+        return jsonify({"success": False, "message": "Invalid JSON data"}), 400
+
+    user_id = data.get("user_id")
+    session_id = data.get("session_id")
+    ip_address = request.remote_addr
+    print("ip_address->", ip_address)
+
+    if not all([user_id, session_id, ip_address]):
+        return jsonify({"success": False, "message": "Missing required data"}), 400
+
+    try:
+        UserSession.save_or_update(user_id, session_id, ip_address)
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Error saving session: {str(e)}"}), 500
+
+    return jsonify({"success": True, "message": "Session saved"})
+
+# Get latest session by IP
+@mcp_api.route('/get_latest_session_by_ip', methods=['GET'])
+def get_latest_session_by_ip():
+    ip_address = request.remote_addr
+    print("ip_address->", ip_address)
+
+    try:
+        session = UserSession.get_latest_session_by_ip(ip_address)
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Error fetching session: {str(e)}"}), 500
+
+    if not session:
+        return jsonify({"success": False, "message": "No session found for this IP"}), 404
+
+    return jsonify({
+        "success": True,
+        "session_id": session.session_id,
+        "user_id": str(session.user_id)  # 👈 Convert ObjectId to string
+    })
+# Save or update user session
+# @mcp_api.route('/save_user_session', methods=['POST'])
+# def save_user_session():
+#     data = request.get_json()
+#     if not data:
+#         return jsonify({"success": False, "message": "Invalid JSON data"}), 400
+
+#     user_id = data.get("user_id")
+#     session_id = data.get("session_id")
+#     ip_address = request.remote_addr
+
+#     if not all([user_id, session_id, ip_address]):
+#         return jsonify({"success": False, "message": "Missing required data"}), 400
+
+#     existing = UserSession.query.filter_by(session_id=session_id).first()
+
+#     if existing:
+#         existing.user_id = user_id
+#         existing.ip_address = ip_address
+#         existing.updated_at = datetime.utcnow()
+#     else:
+#         new_session = UserSession(
+#             user_id=user_id,
+#             session_id=session_id,
+#             ip_address=ip_address
+#         )
+#         db.session.add(new_session)
+
+#     db.session.commit()
+
+#     return jsonify({"success": True, "message": "Session saved"})
+
+
+# # Get latest session by IP
+# @mcp_api.route('/get_latest_session_by_ip', methods=['GET'])
+# def get_latest_session_by_ip():
+#     ip_address = request.remote_addr
+
+#     session = (
+#         UserSession.query.filter_by(ip_address=ip_address)
+#         .order_by(UserSession.updated_at.desc())
+#         .first()
+#     )
+
+#     if not session:
+#         return jsonify({"success": False, "message": "No session found for this IP"}), 404
+
+#     return jsonify({
+#         "success": True,
+#         "session_id": session.session_id,
+#         "user_id": session.user_id
+#     })
 # Add these missing implementations to your mcp_api.py file
 
 @mcp_api.route("/tools/facebook_get_adset_details", methods=["POST"])

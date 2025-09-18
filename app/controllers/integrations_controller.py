@@ -52,7 +52,7 @@ def forward_token():
     }
 
     response = requests.post(
-        "https://10xer-production.up.railway.app/trigger-token-fetch",
+        "http://localhost:3001/trigger-token-fetch",
         json={"access_token": token_obj.token, "user_id": current_user.id},
         headers=headers,
         timeout=5
