@@ -62,9 +62,9 @@ def create_app():
 
     try:
         db.create_collection("userSessions")
-        print("Collection 'tokens' created without schema validation.")
+        print("Collection 'userSessions' created without schema validation.")
     except CollectionInvalid:
-        print("Collection 'tokens' already exists.")
+        print("Collection 'userSessions' already exists.")
 
     # Assign MongoDB tokens collection to Token model
     user_session.UserSession.collection = db["userSessions"]
