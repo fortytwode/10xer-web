@@ -232,8 +232,51 @@ def get_server_public_ip():
     except Exception as e:
         return f"Error: {e}"
 
-
 # Save or update user session
+# @mcp_api.route('/save_user_session', methods=['POST'])
+# def save_user_session():
+#     data = request.get_json()
+#     if not data:
+#         return jsonify({"success": False, "message": "Invalid JSON data"}), 400
+
+#     user_id = data.get("user_id")
+#     session_id = data.get("session_id")
+#     server_ip = get_server_public_ip()
+#     print("Server Public IP ->", server_ip)
+
+#     if not all([user_id, session_id, server_ip]):
+#         return jsonify({"success": False, "message": "Missing required data"}), 400
+
+#     try:
+#         UserSession.save_or_update(user_id, session_id, server_ip)
+#     except Exception as e:
+#         return jsonify({"success": False, "message": f"Error saving session: {str(e)}"}), 500
+
+#     return jsonify({"success": True, "message": "Session saved", "server_ip": server_ip})
+# Get latest session by IP
+# @mcp_api.route('/get_latest_session_by_ip', methods=['GET'])
+# def get_latest_session_by_ip():
+#     server_ip = get_server_public_ip()
+#     print("Server Public IP ->", server_ip)
+
+#     if not server_ip:
+#         return jsonify({"success": False, "message": "Missing or invalid server IP"}), 400
+
+#     try:
+#         session = UserSession.get_latest_session_by_ip(server_ip)
+#     except Exception as e:
+#         return jsonify({"success": False, "message": f"Error fetching session: {str(e)}"}), 500
+
+#     if not session:
+#         return jsonify({"success": False, "message": "No session found for this IP"}), 404
+
+#     return jsonify({
+#         "success": True,
+#         "session_id": session.session_id,
+#         "user_id": str(session.user_id),
+#         "server_ip": server_ip
+#     })
+
 @mcp_api.route('/save_user_session', methods=['POST'])
 def save_user_session():
     data = request.get_json()
@@ -242,8 +285,8 @@ def save_user_session():
 
     user_id = data.get("user_id")
     session_id = data.get("session_id")
-    server_ip = get_server_public_ip()
-    print("Server Public IP ->", server_ip)
+    server_ip = data.get("server_ip")  # <- get from client now
+    print("Received Server IP ->", server_ip)
 
     if not all([user_id, session_id, server_ip]):
         return jsonify({"success": False, "message": "Missing required data"}), 400
@@ -255,15 +298,11 @@ def save_user_session():
 
     return jsonify({"success": True, "message": "Session saved", "server_ip": server_ip})
 
-
-# Get latest session by IP
 @mcp_api.route('/get_latest_session_by_ip', methods=['GET'])
 def get_latest_session_by_ip():
-    server_ip = get_server_public_ip()
-    print("Server Public IP ->", server_ip)
-
+    server_ip = request.args.get('server_ip')
     if not server_ip:
-        return jsonify({"success": False, "message": "Missing or invalid server IP"}), 400
+        return jsonify({"success": False, "message": "Missing server_ip query parameter"}), 400
 
     try:
         session = UserSession.get_latest_session_by_ip(server_ip)
