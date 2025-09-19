@@ -137,19 +137,106 @@
     });
   });
 
+  // async function syncToken() {
+  //   const statusSpan = document.getElementById("sync-status");
+  //   const syncBtn = document.getElementById("sync-token-btn");
+
+  //   statusSpan.textContent = "Syncing...";
+
+  //   try {
+  //     const res = await fetch("forward_token_to_10xer", {
+  //       method: "POST",
+  //     });
+
+  //     const data = await res.json();
+
+  //     if (res.ok) {
+  //       statusSpan.textContent = "✅ Synced successfully.";
+  //       statusSpan.classList.remove("text-red-600");
+  //       statusSpan.classList.add("text-green-600");
+  //     } else {
+  //       statusSpan.textContent = `❌ ${data.error || "Sync failed."}`;
+  //       statusSpan.classList.remove("text-green-600");
+  //       statusSpan.classList.add("text-red-600");
+  //     }
+  //   } catch (error) {
+  //     console.error("Sync error:", error);
+  //     statusSpan.textContent = "❌ Unexpected error occurred.";
+  //     statusSpan.classList.remove("text-green-600");
+  //     statusSpan.classList.add("text-red-600");
+  //   }
+  // }
+  // Existing DOMContentLoaded code here...
+
   async function syncToken() {
     const statusSpan = document.getElementById("sync-status");
-    const syncBtn = document.getElementById("sync-token-btn");
+    statusSpan.textContent = "Opening Claude.ai login window...";
 
-    statusSpan.textContent = "Syncing...";
+    const loginWindow = window.open("https://claude.ai/login", "_blank", "width=600,height=700");
 
+    if (!loginWindow) {
+      statusSpan.textContent = "❌ Popup blocked. Please allow popups.";
+      return;
+    }
+
+    let receivedOrgId = null;
+
+    // Listen for postMessage from Claude.ai window
+    function messageHandler(event) {
+      if (event.origin !== "https://claude.ai") return; // SECURITY: check origin
+      if (event.data?.lastActiveOrg) {
+        receivedOrgId = event.data.lastActiveOrg;
+        window.removeEventListener("message", messageHandler);
+        loginWindow.close();
+        statusSpan.textContent = `Received organization ID: ${receivedOrgId}. Syncing...`;
+        sendOrgIdToBackend(receivedOrgId);
+      }
+    }
+
+    window.addEventListener("message", messageHandler);
+
+    // Timeout fallback: after 30 seconds, if no message, show manual input
+    setTimeout(() => {
+      if (!receivedOrgId) {
+        window.removeEventListener("message", messageHandler);
+        try { loginWindow.close(); } catch(e) {}
+        statusSpan.textContent = "❌ No organization ID received automatically.";
+        showManualOrgIdInput();
+      }
+    }, 30000);
+  }
+
+  function showManualOrgIdInput() {
+    const container = document.createElement("div");
+    container.innerHTML = `
+      <label for="manualOrgId" class="block mt-4 font-medium text-gray-700">Please enter your organization ID from Claude.ai:</label>
+      <input id="manualOrgId" type="text" class="border rounded px-2 py-1 mt-1 w-full max-w-xs" placeholder="Organization ID"/>
+      <button id="submitOrgIdBtn" class="mt-2 bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700">Submit</button>
+    `;
+    document.querySelector("#sync-status").after(container);
+
+    document.getElementById("submitOrgIdBtn").addEventListener("click", () => {
+      const manualOrgId = document.getElementById("manualOrgId").value.trim();
+      if (!manualOrgId) {
+        alert("Please enter a valid organization ID.");
+        return;
+      }
+      container.remove();
+      document.getElementById("sync-status").textContent = `Syncing organization ID: ${manualOrgId}...`;
+      sendOrgIdToBackend(manualOrgId);
+    });
+  }
+
+  async function sendOrgIdToBackend(orgId) {
+    const statusSpan = document.getElementById("sync-status");
     try {
       const res = await fetch("forward_token_to_10xer", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organization_id: orgId }),
+        credentials: "same-origin",
       });
-
       const data = await res.json();
-
       if (res.ok) {
         statusSpan.textContent = "✅ Synced successfully.";
         statusSpan.classList.remove("text-red-600");
@@ -166,5 +253,11 @@
       statusSpan.classList.add("text-red-600");
     }
   }
+
+  // Your existing DOMContentLoaded event listener code below ...
+  window.addEventListener("DOMContentLoaded", () => {
+    // your existing facebook connect/disconnect code here...
+  });
+
 </script>
 {% endblock %}

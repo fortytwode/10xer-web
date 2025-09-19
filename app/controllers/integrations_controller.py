@@ -33,6 +33,12 @@ def integrations():
 @integrations_bp.route("/forward_token_to_10xer", methods=["POST"])
 @login_required
 def forward_token():
+    data = request.get_json()
+    if not data:
+        return jsonify({"success": False, "message": "Invalid JSON data"}), 400
+
+    organization_id= data.get("organization_id")
+    print("Received Organization ID ->", organization_id)
     print("current_user->", current_user.id)
     token_obj = Token.get_by_user_id_and_type(current_user.id, "facebook")
     if not token_obj:
@@ -52,8 +58,8 @@ def forward_token():
     }
 
     response = requests.post(
-        "https://10xer-production.up.railway.app/trigger-token-fetch",
-        json={"access_token": token_obj.token, "user_id": current_user.id},
+        "http://localhost:3001/trigger-token-fetch",
+        json={"access_token": token_obj.token, "user_id": current_user.id, "organization_id": organization_id},
         headers=headers,
         timeout=360
     )
