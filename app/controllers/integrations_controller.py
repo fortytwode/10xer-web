@@ -55,7 +55,7 @@ def forward_token():
         "https://10xer-production.up.railway.app/trigger-token-fetch",
         json={"access_token": token_obj.token, "user_id": current_user.id},
         headers=headers,
-        timeout=5
+        timeout=360
     )
     print("response->", response)
     if response.status_code == 200:

@@ -5,11 +5,12 @@ from bson import ObjectId
 class UserSession:
     collection = None  # Set this to your MongoDB collection (e.g., mongo.db.user_sessions)
 
-    def __init__(self, user_id, session_id, ip_address, created_at=None, updated_at=None, _id=None):
+    def __init__(self, user_id, session_id, ip_address, organization_id, created_at=None, updated_at=None, _id=None):
         # Ensure user_id is stored as an ObjectId
         self.user_id = ObjectId(user_id) if isinstance(user_id, str) else user_id
         self.session_id = session_id
         self.ip_address = ip_address
+        self.organization_id = organization_id
         self.created_at = created_at or datetime.now(timezone.utc)
         self.updated_at = updated_at or datetime.now(timezone.utc)
         self.id = _id  # MongoDB ObjectId
@@ -19,6 +20,7 @@ class UserSession:
             "user_id": self.user_id,
             "session_id": self.session_id,
             "ip_address": self.ip_address,
+            "organization_id": self.organization_id,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -29,13 +31,14 @@ class UserSession:
             user_id=data.get("user_id"),
             session_id=data.get("session_id"),
             ip_address=data.get("ip_address"),
+            organization_id=data.get("organization_id"),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
             _id=data.get("_id")
         )
 
     @classmethod
-    def save_or_update(cls, user_id, session_id, ip_address):
+    def save_or_update(cls, user_id, session_id, ip_address, organization_id):
         if cls.collection is None:
             raise RuntimeError("UserSession.collection is not initialized.")
 
@@ -49,6 +52,7 @@ class UserSession:
                 {"$set": {
                     "user_id": user_id,
                     "ip_address": ip_address,
+                    "organization_id": organization_id,
                     "updated_at": now
                 }}
             )
@@ -64,6 +68,7 @@ class UserSession:
                 "user_id": user_id,
                 "session_id": session_id,
                 "ip_address": ip_address,
+                "organization_id": organization_id,
                 "created_at": now,
                 "updated_at": now
             }
@@ -72,12 +77,12 @@ class UserSession:
             return cls.from_dict(doc)
 
     @classmethod
-    def get_latest_session_by_ip(cls, ip_address):
+    def get_latest_session_by_org_id(cls, organization_id):
         if cls.collection is None:
             raise RuntimeError("UserSession.collection is not initialized.")
 
         doc = cls.collection.find_one(
-            {"ip_address": ip_address},
+            {"organization_id": organization_id},
             sort=[("updated_at", -1)]
         )
         return cls.from_dict(doc) if doc else None

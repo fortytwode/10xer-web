@@ -287,36 +287,41 @@ def save_user_session():
     session_id = data.get("session_id")
     server_ip = data.get("server_ip")  # <- get from client now
     print("Received Server IP ->", server_ip)
+    organization_id= data.get("organization_id")
+    print("Received Organization ID ->", organization_id)
 
     if not all([user_id, session_id, server_ip]):
         return jsonify({"success": False, "message": "Missing required data"}), 400
 
     try:
-        UserSession.save_or_update(user_id, session_id, server_ip)
+        UserSession.save_or_update(user_id, session_id, server_ip, organization_id)
     except Exception as e:
         return jsonify({"success": False, "message": f"Error saving session: {str(e)}"}), 500
 
-    return jsonify({"success": True, "message": "Session saved", "server_ip": server_ip})
+    return jsonify({"success": True, "message": "Session saved", "server_ip": server_ip, "organization_id": organization_id})
 
-@mcp_api.route('/get_latest_session_by_ip', methods=['GET'])
-def get_latest_session_by_ip():
-    server_ip = request.args.get('server_ip')
-    if not server_ip:
-        return jsonify({"success": False, "message": "Missing server_ip query parameter"}), 400
+@mcp_api.route('/get_latest_session_by_org_id', methods=['GET'])
+def get_latest_session_by_org_id():
+    # server_ip = request.args.get('server_ip')
+    # if not server_ip:
+    #     return jsonify({"success": False, "message": "Missing server_ip query parameter"}), 400
+    organization_id = request.args.get('organization_id')
+    if not organization_id:
+        return jsonify({"success": False, "message": "Missing organization_id query parameter"}), 400
 
     try:
-        session = UserSession.get_latest_session_by_ip(server_ip)
+        session = UserSession.get_latest_session_by_org_id(organization_id)
     except Exception as e:
         return jsonify({"success": False, "message": f"Error fetching session: {str(e)}"}), 500
 
     if not session:
-        return jsonify({"success": False, "message": "No session found for this IP"}), 404
+        return jsonify({"success": False, "message": "No organization_id found"}), 404
 
     return jsonify({
         "success": True,
         "session_id": session.session_id,
         "user_id": str(session.user_id),
-        "server_ip": server_ip
+        "organization_id": organization_id
     })
 # Save or update user session
 # @mcp_api.route('/save_user_session', methods=['POST'])
