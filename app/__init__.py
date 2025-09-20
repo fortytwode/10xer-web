@@ -115,68 +115,133 @@ def create_app():
     def claude_manifest():
         return jsonify(CLAUDE_CONNECTOR_MANIFEST)
     
+    # @app.route('/claude/testing_manifest.json', methods=["GET", "POST"])
+    # def claude_testing_manifest():
+    #     return jsonify({
+    #     "dxt_version": "0.1",
+    #     "name": "10xer",
+    #     "display_name": "10xer MCP Live Server",
+    #     "version": "0.1.0",
+    #     "description": "Extension to connect Claude with the 10xer MCP Server for real-time event streaming.",
+    #     "long_description": "The 10xer MCP Server extension enables integration with the 10xer MCP Server, allowing Claude to communicate via server-sent events (SSE) and proxy commands through a live Node.js server.",
+    #     "author": {
+    #         "name": "10xer MCP",
+    #         "email": "mahmadimran1110@gmail.com",
+    #         "url": "https://10xer-web-production.up.railway.app/"
+    #     },
+    #     "repository": {
+    #         "type": "git",
+    #         "url": "https://10xer-web-production.up.railway.app/"
+    #     },
+    #     "homepage": "https://10xer-web-production.up.railway.app/",
+    #     "icon": "favicon.png",
+    #     "auth": {
+    #         "type": "redirect"
+    #     },
+    #     "connect_uri": "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize",
+    #     "server": {
+    #         "type": "node",
+    #         "entry_point": "src/index.js",
+    #         "mcp_config": {
+    #         "command": "node",
+    #         "args": [
+    #             "${__dirname}/src/index.js",
+    #             "10xer MCP Server",
+    #             "https://10xer-web-production.up.railway.app/mcp-api/sse",
+    #             "${user_config.api_key}"
+    #         ],
+    #         "env": {
+    #             "SERVER_NAME": "10xer MCP Server",
+    #             "SSE_URL": "https://10xer-web-production.up.railway.app/mcp-api/sse",
+    #             "API_KEY": "${user_config.api_key}"
+    #         }
+    #         }
+    #     },
+    #     "user_config": {
+    #         "api_key": {
+    #         "type": "string",
+    #         "title": "10xer MCP Live Server API Key",
+    #         "description": "Enter your API key generated from the 10xer MCP Server integration page.",
+    #         "sensitive": true,
+    #         "required": true
+    #         }
+    #     },
+    #     "tools": [],
+    #     "keywords": ["stdio", "sse", "mcp", "proxy"],
+    #     "license": "MIT",
+    #     "compatibility": {
+    #         "claude_desktop": ">=0.10.0",
+    #         "platforms": ["darwin", "win32", "linux"],
+    #         "runtimes": {
+    #         "node": ">=16.0.0"
+    #         }
+    #     }
+    #     })
+
     @app.route('/claude/testing_manifest.json', methods=["GET", "POST"])
     def claude_testing_manifest():
-        return jsonify({
-        "dxt_version": "0.1",
-        "name": "10xer",
-        "display_name": "10xer MCP Live Server",
-        "version": "0.1.0",
-        "description": "Extension to connect Claude with the 10xer MCP Server for real-time event streaming.",
-        "long_description": "The 10xer MCP Server extension enables integration with the 10xer MCP Server, allowing Claude to communicate via server-sent events (SSE) and proxy commands through a live Node.js server.",
-        "author": {
-            "name": "10xer MCP",
-            "email": "mahmadimran1110@gmail.com",
-            "url": "https://10xer-web-production.up.railway.app/"
-        },
-        "repository": {
-            "type": "git",
-            "url": "https://10xer-web-production.up.railway.app/"
-        },
-        "homepage": "https://10xer-web-production.up.railway.app/",
-        "icon": "favicon.png",
-        "auth": {
-            "type": "redirect"
-        },
-        "connect_uri": "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize",
-        "server": {
-            "type": "node",
-            "entry_point": "src/index.js",
-            "mcp_config": {
-            "command": "node",
-            "args": [
-                "${__dirname}/src/index.js",
-                "10xer MCP Server",
-                "https://10xer-web-production.up.railway.app/mcp-api/sse",
-                "${user_config.api_key}"
-            ],
-            "env": {
-                "SERVER_NAME": "10xer MCP Server",
-                "SSE_URL": "https://10xer-web-production.up.railway.app/mcp-api/sse",
-                "API_KEY": "${user_config.api_key}"
-            }
-            }
-        },
-        "user_config": {
-            "api_key": {
-            "type": "string",
-            "title": "10xer MCP Live Server API Key",
-            "description": "Enter your API key generated from the 10xer MCP Server integration page.",
-            "sensitive": true,
-            "required": true
-            }
-        },
-        "tools": [],
-        "keywords": ["stdio", "sse", "mcp", "proxy"],
-        "license": "MIT",
-        "compatibility": {
-            "claude_desktop": ">=0.10.0",
-            "platforms": ["darwin", "win32", "linux"],
-            "runtimes": {
-            "node": ">=16.0.0"
+        data = {
+            "dxt_version": "0.1",
+            "name": "10xer",
+            "display_name": "10xer MCP Live Server",
+            "version": "0.1.0",
+            "description": "Extension to connect Claude with the 10xer MCP Server for real-time event streaming.",
+            "long_description": "The 10xer MCP Server extension enables integration with the 10xer MCP Server, allowing Claude to communicate via server-sent events (SSE) and proxy commands through a live Node.js server.",
+            "author": {
+                "name": "10xer MCP",
+                "email": "mahmadimran1110@gmail.com",
+                "url": "https://10xer-web-production.up.railway.app/"
+            },
+            "repository": {
+                "type": "git",
+                "url": "https://10xer-web-production.up.railway.app/"
+            },
+            "homepage": "https://10xer-web-production.up.railway.app/",
+            "icon": "favicon.png",
+            "auth": {
+                "type": "redirect"
+            },
+            "connect_uri": "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize",
+            "server": {
+                "type": "node",
+                "entry_point": "src/index.js",
+                "mcp_config": {
+                    "command": "node",
+                    "args": [
+                        "${__dirname}/src/index.js",
+                        "10xer MCP Server",
+                        "https://10xer-web-production.up.railway.app/mcp-api/sse",
+                        "${user_config.api_key}"
+                    ],
+                    "env": {
+                        "SERVER_NAME": "10xer MCP Server",
+                        "SSE_URL": "https://10xer-web-production.up.railway.app/mcp-api/sse",
+                        "API_KEY": "${user_config.api_key}"
+                    }
+                }
+            },
+            "user_config": {
+                "api_key": {
+                    "type": "string",
+                    "title": "10xer MCP Live Server API Key",
+                    "description": "Enter your API key generated from the 10xer MCP Server integration page.",
+                    "sensitive": True,
+                    "required": True
+                }
+            },
+            "tools": [],
+            "keywords": ["stdio", "sse", "mcp", "proxy"],
+            "license": "MIT",
+            "compatibility": {
+                "claude_desktop": ">=0.10.0",
+                "platforms": ["darwin", "win32", "linux"],
+                "runtimes": {
+                    "node": ">=16.0.0"
+                }
             }
         }
-        })
+
+        return jsonify(data)
 
     
     FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID")
