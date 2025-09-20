@@ -27,38 +27,38 @@ def mcp_authorize():
     return redirect(fb_oauth_url)
 
 # Token Endpoint (Claude POSTs here after authorization)
-# @claude_bp.route("/mcp-api/token", methods=["POST"])
-# def token_exchange():
-#     data = request.get_json(force=True)
-#     if not data or "code" not in data:
-#         return jsonify({"error": "Missing code"}), 400
+@claude_bp.route("/mcp-api/token", methods=["POST"])
+def token_exchange():
+    data = request.get_json(force=True)
+    if not data or "code" not in data:
+        return jsonify({"error": "Missing code"}), 400
 
-#     code = data["code"]
+    code = data["code"]
 
-#     # Exchange code for Facebook access token
-#     fb_token_response = requests.get(
-#         "https://graph.facebook.com/v16.0/oauth/access_token",
-#         params={
-#             "client_id": FACEBOOK_APP_ID,
-#             "client_secret": FACEBOOK_APP_SECRET,
-#             "redirect_uri": "https://claude.ai/mcp-api/oauth/callback",
-#             "code": code
-#         }
-#     )
-#     token_data = fb_token_response.json()
+    # Exchange code for Facebook access token
+    fb_token_response = requests.get(
+        "https://graph.facebook.com/v16.0/oauth/access_token",
+        params={
+            "client_id": FACEBOOK_APP_ID,
+            "client_secret": FACEBOOK_APP_SECRET,
+            "redirect_uri": "https://claude.ai/mcp-api/oauth/callback",
+            "code": code
+        }
+    )
+    token_data = fb_token_response.json()
 
-#     # Save token in MongoDB (optional)
-#     if "access_token" in token_data:
-#         token.Token.create(
-#             user_id="CLAUDE_USER",  # optional
-#             token_type="facebook",
-#             token=token_data["access_token"],
-#             extra_data=token_data
-#         )
+    # Save token in MongoDB (optional)
+    if "access_token" in token_data:
+        token.Token.create(
+            user_id="CLAUDE_USER",  # optional
+            token_type="facebook",
+            token=token_data["access_token"],
+            extra_data=token_data
+        )
 
-#     # Return JSON to Claude (popup closes automatically)
-#     return jsonify({
-#         "access_token": token_data.get("access_token"),
-#         "expires_in": token_data.get("expires_in"),
-#         "refresh_token": token_data.get("refresh_token")
-#     })
+    # Return JSON to Claude (popup closes automatically)
+    return jsonify({
+        "access_token": token_data.get("access_token"),
+        "expires_in": token_data.get("expires_in"),
+        "refresh_token": token_data.get("refresh_token")
+    })
