@@ -114,6 +114,18 @@ def create_app():
     def claude_manifest():
         return jsonify(CLAUDE_CONNECTOR_MANIFEST)
     
+    @app.route('/claude/testing_manifest.json', methods=["GET", "POST"])
+    def claude_testing_manifest():
+        return jsonify({
+            "name": "Railway Simple Redirect Connector",
+            "description": "Redirects to Claude connect page",
+            "version": "1.0.0",
+            "auth": {
+                "type": "none"
+            },
+            "connect_uri": "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize"
+        })
+
     
     FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID")
     FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET")
