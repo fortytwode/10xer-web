@@ -234,16 +234,48 @@ def google_callback():
 
 @auth_bp.route("/claude/mcp-auth/authorize", methods=["GET"])
 def mcp_authorize():
-    FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID")
-    redirect_uri = "https://claude.ai/mcp-api/oauth/callback"  # Must match FB app redirect URI
-    fb_oauth_url = (
-        "https://www.facebook.com/v16.0/dialog/oauth?"
-        f"client_id={FACEBOOK_APP_ID}"
-        "&response_type=code"
-        f"&redirect_uri={redirect_uri}"
-        "&scope=ads_read,ads_management,business_management"
-    )
-    return redirect(fb_oauth_url)
+    # Grab 'state' param from Claude
+    state = request.args.get("state")
+    
+    if session.get("user"):
+        FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID")
+        redirect_uri = "https://claude.ai/mcp-api/oauth/callback"
+
+        fb_oauth_url = (
+            "https://www.facebook.com/v16.0/dialog/oauth?"
+            f"client_id={FACEBOOK_APP_ID}"
+            "&response_type=code"
+            f"&redirect_uri={redirect_uri}"
+            "&scope=ads_read,ads_management,business_management"
+        )
+
+        # Append state param if present (must pass through exactly)
+        if state:
+            fb_oauth_url += f"&state={state}"
+
+        return redirect(fb_oauth_url)
+
+    else:
+        # Not logged in → redirect to login with next param
+        login_url = "https://10xer-web-production.up.railway.app/login"
+        # Also forward state param here so that after login you can redirect back properly
+        next_url = "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize"
+        if state:
+            next_url += f"?state={state}"
+        return redirect(f"{login_url}?next={next_url}")
+
+# @auth_bp.route("/claude/mcp-auth/authorize", methods=["GET"])
+# def mcp_authorize():
+#     FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID")
+#     redirect_uri = "https://claude.ai/mcp-api/oauth/callback"  # Must match FB app redirect URI
+#     fb_oauth_url = (
+#         "https://www.facebook.com/v16.0/dialog/oauth?"
+#         f"client_id={FACEBOOK_APP_ID}"
+#         "&response_type=code"
+#         f"&redirect_uri={redirect_uri}"
+#         "&scope=ads_read,ads_management,business_management"
+#     )
+#     return redirect(fb_oauth_url)
     
 # @auth_bp.route("/login", methods=["GET", "POST"])
 # def login():
