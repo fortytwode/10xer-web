@@ -9,3 +9,7 @@ sendgrid==6.12.4
 google-auth==2.27.0
 google-auth-httplib2==0.1.0
 fastapi==0.116.1
+
+# Database
+sqlalchemy==2.0.30
+# alembic==1.13.1  # optional: for migrations
