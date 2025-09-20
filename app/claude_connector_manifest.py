@@ -5,9 +5,9 @@ CLAUDE_CONNECTOR_MANIFEST = {
   "connection": {
     "type": "oauth2",
     "authorization_url": "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize",
-    "token_url": "https://10xer-web-production.up.railway.app/mcp-api/token",
+    # "token_url": "https://10xer-web-production.up.railway.app/mcp-api/token",
     "scopes": ["ads_read", "ads_management", "business_management"],
-    "redirect_uri": "https://claude.ai/mcp-api/oauth/callback"
+    # "redirect_uri": "https://claude.ai/mcp-api/oauth/callback"
   },
   "api": {
     "base_url": "https://10xer-web-production.up.railway.app/mcp-api",

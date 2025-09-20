@@ -69,6 +69,10 @@ def forward_token():
     else:
         return jsonify({"error": "Failed to forward token"}), 500
     
+@integrations_bp.route("/forward_facebook_to_claude", methods=["POST"])
+def forward_facebook_to_claude():
+    redirect("https://claude.ai/settings/connectors")
+    
 
 @integrations_bp.route("/enter_organization", methods=["GET", "POST"])
 def enter_organization():

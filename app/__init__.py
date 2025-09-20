@@ -10,6 +10,7 @@ from app.claude_connector_manifest import CLAUDE_CONNECTOR_MANIFEST
 from app.models import user, token, user_session  # import token model here too
 import os
 import requests
+from flask import session, redirect
 
 def create_app():
     app = Flask(__name__)
@@ -96,13 +97,13 @@ def create_app():
     
 
     # Add this route at the app level (not in a blueprint)
-    @app.route('/.well-known/oauth-authorization-server', methods=["GET"])
-    def oauth_discovery():
-        return jsonify({
-            "authorization_endpoint": "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize",
-            "token_endpoint": "https://10xer-web-production.up.railway.app/mcp-api/token",
-            "registration_uri": "https://10xer-web-production.up.railway.app/claude/manifest"
-        })
+    # @app.route('/.well-known/oauth-authorization-server', methods=["GET"])
+    # def oauth_discovery():
+    #     return jsonify({
+    #         "authorization_endpoint": "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize",
+    #         "token_endpoint": "https://10xer-web-production.up.railway.app/mcp-api/token",
+    #         "registration_uri": "https://10xer-web-production.up.railway.app/claude/manifest"
+    #     })
     
     # Alias route for Claude (it probes here as part of OAuth discovery)
     @app.route('/.well-known/oauth-authorization-server/claude/manifest', methods=["GET"])
@@ -118,52 +119,53 @@ def create_app():
     FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET")
 
     
-    @app.route("/claude/mcp-auth/authorize", methods=["GET"])
-    def mcp_authorize():
-        fb_oauth_url = (
-            "https://www.facebook.com/v16.0/dialog/oauth?"
-            f"client_id={FACEBOOK_APP_ID}"
-            "&response_type=code"
-            f"&redirect_uri=https://claude.ai/mcp-api/oauth/callback"
-            "&scope=ads_read,ads_management,business_management"
-        )
-        return redirect(fb_oauth_url)
+    # @app.route("/claude/mcp-auth/authorize", methods=["GET"])
+    # def mcp_authorize():
+    #     fb_oauth_url = (
+    #         "https://www.facebook.com/v16.0/dialog/oauth?"
+    #         f"client_id={FACEBOOK_APP_ID}"
+    #         "&response_type=code"
+    #         f"&redirect_uri=https://claude.ai/mcp-api/oauth/callback"
+    #         "&scope=ads_read,ads_management,business_management"
+    #     )
+    #     return redirect(fb_oauth_url)
+
     
     @app.route("/mcp-api/token", methods=["POST"])
     def token_exchange():
         data = request.get_json(force=True)
-        if not data or "code" not in data:
-            return jsonify({"error": "Missing code"}), 400
+        # if not data or "code" not in data:
+        #     return jsonify({"error": "Missing code"}), 400
 
-        code = data["code"]
+        # code = data["code"]
 
-        # Exchange code for Facebook access token
-        fb_token_response = requests.get(
-            "https://graph.facebook.com/v16.0/oauth/access_token",
-            params={
-                "client_id": FACEBOOK_APP_ID,
-                "client_secret": FACEBOOK_APP_SECRET,
-                "redirect_uri": "https://claude.ai/mcp-api/oauth/callback",
-                "code": code
-            }
-        )
-        token_data = fb_token_response.json()
+        # # Exchange code for Facebook access token
+        # fb_token_response = requests.get(
+        #     "https://graph.facebook.com/v16.0/oauth/access_token",
+        #     params={
+        #         "client_id": FACEBOOK_APP_ID,
+        #         "client_secret": FACEBOOK_APP_SECRET,
+        #         "redirect_uri": "https://claude.ai/mcp-api/oauth/callback",
+        #         "code": code
+        #     }
+        # )
+        # token_data = fb_token_response.json()
 
-        # Save token in MongoDB (optional)
-        if "access_token" in token_data:
-            token.Token.create(
-                user_id="CLAUDE_USER_ID",  # optional placeholder if you want to save
-                token_type="facebook",
-                token=token_data["access_token"],
-                extra_data=token_data
-            )
+        # # Save token in MongoDB (optional)
+        # if "access_token" in token_data:
+        #     token.Token.create(
+        #         user_id="CLAUDE_USER_ID",  # optional placeholder if you want to save
+        #         token_type="facebook",
+        #         token=token_data["access_token"],
+        #         extra_data=token_data
+        #     )
 
-        # Return JSON (Claude MCP popup closes automatically)
-        return jsonify({
-            "access_token": token_data.get("access_token"),
-            "expires_in": token_data.get("expires_in"),
-            "refresh_token": token_data.get("refresh_token")
-        })
+        # # Return JSON (Claude MCP popup closes automatically)
+        # return jsonify({
+        #     "access_token": token_data.get("access_token"),
+        #     "expires_in": token_data.get("expires_in"),
+        #     "refresh_token": token_data.get("refresh_token")
+        # })
         
     @app.route('/images/<path:filename>')
     def images(filename):

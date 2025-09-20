@@ -67,6 +67,14 @@
     </button>
     <span id="sync-status" class="ml-4 text-sm text-gray-600"></span>
   </div>
+  <div id="facebook-continue-div" class="mt-4 hidden">
+    <button
+      id="facebook-continue-btn"
+      class="bg-green-600 text-white text-sm font-semibold px-4 py-1 rounded hover:bg-green-700 transition"
+    >
+      Continue
+    </button>
+  </div>
 </div>
 
 <script>
@@ -81,26 +89,43 @@
       method: "GET",
       credentials: "same-origin"
     })
-    .then(response => {
-      if (!response.ok) throw new Error("No Facebook token found");
-      return response.json();
-    })
-    .then(data => {
+    then(data => {
       if (data.success && data.access_token) {
         // Show disconnect UI
         fbConnectedDiv.classList.remove("hidden");
         fbConnectDiv.classList.add("hidden");
+
+        // Show Continue button
+        const fbContinueDiv = document.getElementById("facebook-continue-div");
+        fbContinueDiv.classList.remove("hidden");
+
+        const continueBtn = document.getElementById("facebook-continue-btn");
+        continueBtn.addEventListener("click", async () => {
+          try {
+            // Send FB token to backend endpoint that forwards it to Claude
+            const res = await fetch("{{ url_for('integrations.forward_facebook_to_claude') }}", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "same-origin",
+              body: JSON.stringify({ access_token: data.access_token })
+            });
+
+            if (res.ok) {
+              alert("✅ Facebook connected to Claude successfully!");
+              // Optionally redirect Claude UI or refresh integration
+            } else {
+              alert("❌ Failed to forward token to Claude.");
+            }
+          } catch (error) {
+            console.error("Error sending token to Claude:", error);
+            alert("❌ Unexpected error.");
+          }
+        });
       } else {
-        // Show connect UI
         fbConnectDiv.classList.remove("hidden");
         fbConnectedDiv.classList.add("hidden");
       }
     })
-    .catch(() => {
-      // Show connect UI on error or no token
-      fbConnectDiv.classList.remove("hidden");
-      fbConnectedDiv.classList.add("hidden");
-    });
 
     // Disconnect button handler
     disconnectBtn.addEventListener("click", async () => {
@@ -125,6 +150,12 @@
           alert("Facebook integration disconnected successfully.");
           fbConnectDiv.classList.remove("hidden");
           fbConnectedDiv.classList.add("hidden");
+          localStorage.clear()
+          document.cookie.split(";").forEach(cookie => {
+          document.cookie = cookie
+            .replace(/^ +/, "") // Trim spaces
+            .replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/");
+        });
         } else if (response.status === 404) {
           alert("No Facebook integration found to disconnect.");
         } else {
@@ -136,38 +167,6 @@
       }
     });
   });
-
-  // async function syncToken() {
-  //   const statusSpan = document.getElementById("sync-status");
-  //   const syncBtn = document.getElementById("sync-token-btn");
-
-  //   statusSpan.textContent = "Syncing...";
-
-  //   try {
-  //     const res = await fetch("forward_token_to_10xer", {
-  //       method: "POST",
-  //     });
-
-  //     const data = await res.json();
-
-  //     if (res.ok) {
-  //       statusSpan.textContent = "✅ Synced successfully.";
-  //       statusSpan.classList.remove("text-red-600");
-  //       statusSpan.classList.add("text-green-600");
-  //     } else {
-  //       statusSpan.textContent = `❌ ${data.error || "Sync failed."}`;
-  //       statusSpan.classList.remove("text-green-600");
-  //       statusSpan.classList.add("text-red-600");
-  //     }
-  //   } catch (error) {
-  //     console.error("Sync error:", error);
-  //     statusSpan.textContent = "❌ Unexpected error occurred.";
-  //     statusSpan.classList.remove("text-green-600");
-  //     statusSpan.classList.add("text-red-600");
-  //   }
-  // }
-  // Existing DOMContentLoaded code here...
-
   async function syncToken() {
     const statusSpan = document.getElementById("sync-status");
     statusSpan.textContent = "Opening Claude.ai login window...";

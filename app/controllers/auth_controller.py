@@ -127,11 +127,16 @@ def verify_email_token():
         flash("Invalid or expired link", "danger")
         return redirect(url_for("auth.login"))
     
+from flask import redirect, make_response, session
+
 @auth_bp.route("/logout")
 @login_required
 def logout():
     logout_user()
-    return redirect("/")
+    session.clear()  # Optional: clear all session keys
+    resp = make_response(redirect("/"))
+    resp.set_cookie('session', '', expires=0)  # Remove session cookie
+    return resp
 
 @auth_bp.route("/login/google")
 def google_login():
@@ -215,6 +220,17 @@ def google_callback():
     except Exception as e:
         print("Login failed with exception:", str(e))
         return f"Login failed: {str(e)}", 500
+    
+@auth_bp.route("/claude/mcp-auth/authorize", methods=["GET"])
+def mcp_authorize():
+    # Check 10Xer login
+    if session.get("user"):
+        return redirect("https://10xer-web-production.up.railway.app/integrations/integrations")
+    
+    # Not logged in → redirect to login
+    login_url = "https://10xer-web-production.up.railway.app/login"
+    next_url = "https://10xer-web-production.up.railway.app/integrations/integrations"
+    return redirect(f"{login_url}?next={next_url}")
     
 # @auth_bp.route("/login", methods=["GET", "POST"])
 # def login():
