@@ -68,6 +68,32 @@ def forward_token():
         return jsonify({"status": "Token forwarded"})
     else:
         return jsonify({"error": "Failed to forward token"}), 500
+    
+
+@integrations_bp.route("/enter_organization", methods=["GET", "POST"])
+def enter_organization():
+    if request.method == "GET":
+        # Serve the HTML form for user input
+        return render_template("enter_organization.html")
+
+    # POST: receive organization_id JSON, save in session
+    data = request.get_json()
+    if not data or "organization_id" not in data:
+        return jsonify({"success": False, "message": "Missing organization_id"}), 400
+
+    organization_id = data["organization_id"]
+    session["organization_id"] = organization_id  # Store for later
+    print(f"Stored organization_id: {organization_id} for user {current_user.id}")
+    return jsonify({"success": True, "message": f"Organization ID {organization_id} stored"})
+
+@integrations_bp.route("/get_organization_id", methods=["GET"])
+def get_organization_id():
+    print("session->", session)
+    # API endpoint to fetch stored organization_id from session
+    org_id = session.get("organization_id")
+    if not org_id:
+        return jsonify({"success": False, "message": "Organization ID not set"}), 404
+    return jsonify({"success": True, "organization_id": org_id})
 
 # @integrations_bp.route("/forward_token_to_10xer", methods=["POST"])
 # @login_required

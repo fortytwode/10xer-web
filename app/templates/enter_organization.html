@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Enter Organization</title>
+</head>
+
+<body>
+    <h1>Enter Organization ID</h1>
+    <form id="orgForm">
+        <label for="organization_id">Organization ID:</label>
+        <input type="text" id="organization_id" name="organization_id" required />
+        <button type="submit">Submit</button>
+    </form>
+
+    <div id="responseMessage"></div>
+
+    <script>
+        document.getElementById('orgForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+            const orgId = document.getElementById('organization_id').value;
+            console.log("orgId->", orgId)
+
+            const response = await fetch('enter_organization', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ organization_id: orgId }),
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                // Notify the opener window with the organization ID
+                window.opener.postMessage({ organizationId: orgId }, 'http://localhost:5005');
+                window.close();
+            } else {
+                alert(result.message || "Error submitting organization ID");
+            }
+
+            const messageDiv = document.getElementById('responseMessage');
+            if (response.ok) {
+                messageDiv.textContent = result.status || "Success!";
+                messageDiv.style.color = "green";
+            } else {
+                messageDiv.textContent = result.error || result.message || "Failed to forward token";
+                messageDiv.style.color = "red";
+            }
+        });
+    </script>
+</body>
+
+</html>
