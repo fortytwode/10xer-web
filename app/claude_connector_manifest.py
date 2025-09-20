@@ -2,19 +2,23 @@ CLAUDE_CONNECTOR_MANIFEST = {
   "name": "Facebook Ads Connector",
   "description": "Access Facebook Ads data",
   "version": "1.0.0",
-  "connection": {
-    "type": "oauth2",
-    "authorization_url": "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize",
-    # "token_url": "https://10xer-web-production.up.railway.app/mcp-api/token",
-    "scopes": ["ads_read", "ads_management", "business_management"],
-    # "redirect_uri": "https://claude.ai/mcp-api/oauth/callback"
+  "connect_uri": "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize",
+  "auth": {
+    "type": "none"
   },
-  "api": {
-    "base_url": "https://10xer-web-production.up.railway.app/mcp-api",
-    "authentication": {
-        "type": "oauth2_bearer"
-    }
-  },
+  # "connection": {
+  #   "type": "oauth2",
+  #   "authorization_url": "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize",
+  #   # "token_url": "https://10xer-web-production.up.railway.app/mcp-api/token",
+  #   "scopes": ["ads_read", "ads_management", "business_management"],
+  #   # "redirect_uri": "https://claude.ai/mcp-api/oauth/callback"
+  # },
+  # "api": {
+  #   "base_url": "https://10xer-web-production.up.railway.app/mcp-api",
+  #   "authentication": {
+  #       "type": "oauth2_bearer"
+  #   }
+  # },
   "tools": [
     {
       "name": "facebook_list_ad_accounts",
