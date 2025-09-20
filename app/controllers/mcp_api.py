@@ -786,6 +786,7 @@ def sse_handler():
     # This should never be reached, but just in case
     return jsonify({"success": False, "error": "Invalid request method"}), 405
 
+
 def facebook_list_ad_accounts_function(access_token: str) -> dict:
     """Helper function for Facebook ad accounts API call"""
     url = "https://graph.facebook.com/v18.0/me/adaccounts"
@@ -810,3 +811,17 @@ def facebook_list_ad_accounts_function(access_token: str) -> dict:
         "success": True,
         "ad_accounts": data.get("data", [])
     }
+
+@mcp_api.route("/tools/facebook_list_ad_accounts", methods=["POST"])
+def facebook_list_ad_accounts():
+    # Extract token from Authorization header
+    auth_header = request.headers.get("Authorization")
+
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Missing or invalid Authorization header"}), 401
+
+    access_token = auth_header.split("Bearer ")[1]
+
+    result = facebook_list_ad_accounts_function(access_token)
+
+    return jsonify(result)

@@ -242,7 +242,7 @@ CLAUDE_CONNECTOR_MANIFEST = {
   "api": {
     "base_url": "https://10xer-web-production.up.railway.app/mcp-api",
     "authentication": {
-      "type": "oauth2_bearer"
+      "type": "oauth2"
     }
   },
   "tools": [
