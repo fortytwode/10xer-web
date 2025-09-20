@@ -221,16 +221,29 @@ def google_callback():
         print("Login failed with exception:", str(e))
         return f"Login failed: {str(e)}", 500
     
+# @auth_bp.route("/claude/mcp-auth/authorize", methods=["GET"])
+# def mcp_authorize():
+#     # Check 10Xer login
+#     if session.get("user"):
+#         return redirect("https://10xer-web-production.up.railway.app/integrations/integrations")
+    
+#     # Not logged in → redirect to login
+#     login_url = "https://10xer-web-production.up.railway.app/login"
+#     next_url = "https://10xer-web-production.up.railway.app/integrations/integrations"
+#     return redirect(f"{login_url}?next={next_url}")
+
 @auth_bp.route("/claude/mcp-auth/authorize", methods=["GET"])
 def mcp_authorize():
-    # Check 10Xer login
-    if session.get("user"):
-        return redirect("https://10xer-web-production.up.railway.app/integrations/integrations")
-    
-    # Not logged in → redirect to login
-    login_url = "https://10xer-web-production.up.railway.app/login"
-    next_url = "https://10xer-web-production.up.railway.app/integrations/integrations"
-    return redirect(f"{login_url}?next={next_url}")
+    FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID")
+    redirect_uri = "https://claude.ai/mcp-api/oauth/callback"  # Must match FB app redirect URI
+    fb_oauth_url = (
+        "https://www.facebook.com/v16.0/dialog/oauth?"
+        f"client_id={FACEBOOK_APP_ID}"
+        "&response_type=code"
+        f"&redirect_uri={redirect_uri}"
+        "&scope=ads_read,ads_management,business_management"
+    )
+    return redirect(fb_oauth_url)
     
 # @auth_bp.route("/login", methods=["GET", "POST"])
 # def login():
