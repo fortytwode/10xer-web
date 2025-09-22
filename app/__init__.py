@@ -201,7 +201,7 @@ def create_app():
             "auth": {
                 "type": "redirect"
             },
-            "connect_uri": "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize"
+            "connect_uri": "https://10xer-web-production.up.railway.app/api/organizations/<org_id>/mcp/start-auth/<server_id>"
         }
         return jsonify(data)
     
