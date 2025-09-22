@@ -114,69 +114,6 @@ def create_app():
     @app.route('/claude/manifest', methods=["GET", "POST"])
     def claude_manifest():
         return jsonify(CLAUDE_CONNECTOR_MANIFEST)
-    
-    # @app.route('/claude/testing_manifest.json', methods=["GET", "POST"])
-    # def claude_testing_manifest():
-    #     return jsonify({
-    #     "dxt_version": "0.1",
-    #     "name": "10xer",
-    #     "display_name": "10xer MCP Live Server",
-    #     "version": "0.1.0",
-    #     "description": "Extension to connect Claude with the 10xer MCP Server for real-time event streaming.",
-    #     "long_description": "The 10xer MCP Server extension enables integration with the 10xer MCP Server, allowing Claude to communicate via server-sent events (SSE) and proxy commands through a live Node.js server.",
-    #     "author": {
-    #         "name": "10xer MCP",
-    #         "email": "mahmadimran1110@gmail.com",
-    #         "url": "https://10xer-web-production.up.railway.app/"
-    #     },
-    #     "repository": {
-    #         "type": "git",
-    #         "url": "https://10xer-web-production.up.railway.app/"
-    #     },
-    #     "homepage": "https://10xer-web-production.up.railway.app/",
-    #     "icon": "favicon.png",
-    #     "auth": {
-    #         "type": "redirect"
-    #     },
-    #     "connect_uri": "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize",
-    #     "server": {
-    #         "type": "node",
-    #         "entry_point": "src/index.js",
-    #         "mcp_config": {
-    #         "command": "node",
-    #         "args": [
-    #             "${__dirname}/src/index.js",
-    #             "10xer MCP Server",
-    #             "https://10xer-web-production.up.railway.app/mcp-api/sse",
-    #             "${user_config.api_key}"
-    #         ],
-    #         "env": {
-    #             "SERVER_NAME": "10xer MCP Server",
-    #             "SSE_URL": "https://10xer-web-production.up.railway.app/mcp-api/sse",
-    #             "API_KEY": "${user_config.api_key}"
-    #         }
-    #         }
-    #     },
-    #     "user_config": {
-    #         "api_key": {
-    #         "type": "string",
-    #         "title": "10xer MCP Live Server API Key",
-    #         "description": "Enter your API key generated from the 10xer MCP Server integration page.",
-    #         "sensitive": true,
-    #         "required": true
-    #         }
-    #     },
-    #     "tools": [],
-    #     "keywords": ["stdio", "sse", "mcp", "proxy"],
-    #     "license": "MIT",
-    #     "compatibility": {
-    #         "claude_desktop": ">=0.10.0",
-    #         "platforms": ["darwin", "win32", "linux"],
-    #         "runtimes": {
-    #         "node": ">=16.0.0"
-    #         }
-    #     }
-    #     })
 
     @app.route('/claude/testing_manifest.json', methods=["GET", "POST"])
     def claude_testing_manifest():
@@ -211,25 +148,28 @@ def create_app():
     from flask import Blueprint, request, redirect, session
     @app.route('/api/organizations/<org_id>/mcp/start-auth/<server_id>', methods=['GET'])
     def start_auth(org_id, server_id):
-        redirect_url = request.args.get('redirect_url', '/settings/connectors')
+        # Absolute redirect_uri for Claude callback
+        redirect_url = request.args.get('redirect_url', 'https://claude.ai/api/mcp/auth_callback')
         state = request.args.get('state', '')
         open_in_browser = request.args.get('open_in_browser', '0')
-        # if not session.get('user'):
-        #     login_url = "https://10xer-web-production.up.railway.app/login"
-        #     next_url = request.url
-        #     return redirect(f"{login_url}?next={next_url}")
-        # Build authorize URL (replace YOUR_CLIENT_ID with actual client ID from your MCP config)
+        if not session.get('user'):
+            login_url = "https://10xer-web-production.up.railway.app/login"
+            next_url = request.url
+            return redirect(f"{login_url}?next={next_url}")
+        # Replace with your actual client ID (must be consistent)
+        client_id = "your_actual_client_id_here"
         authorize_url = (
             "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize"
             f"?response_type=code"
-            # f"&client_id=YOUR_CLIENT_ID"
-            # f"&redirect_uri={redirect_url}"
-            # f"&state={state}"
-            # f"&scope=user_profile+read_ai_actions+write_ai_actions"
-            # f"&code_challenge=CODE_CHALLENGE"
-            # f"&code_challenge_method=S256"
+            f"&client_id={client_id}"
+            f"&redirect_uri={redirect_url}"
+            f"&state={state}"
+            f"&scope=user_profile+read_ai_actions+write_ai_actions"
+            f"&code_challenge=CODE_CHALLENGE"  # Handle PKCE properly
+            f"&code_challenge_method=S256"
         )
-        return redirect(authorize_url)
+        # Return 307 Temporary Redirect so Claude knows to follow it
+        return redirect(authorize_url, code=307)
 
     # @app.route("/claude/mcp-auth/authorize", methods=["GET"])
     # def mcp_authorize():

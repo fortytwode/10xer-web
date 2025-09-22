@@ -249,7 +249,7 @@ def google_callback():
 
 import time    
 auth_codes = {}  
-  
+
 @auth_bp.route("/claude/mcp-auth/authorize", methods=["GET"])
 def mcp_authorize():
     response_type = request.args.get("response_type")
@@ -257,13 +257,12 @@ def mcp_authorize():
     redirect_uri = request.args.get("redirect_uri")
     state = request.args.get("state")
     scope = request.args.get("scope")
-    code_challenge = request.args.get("code_challenge")
+    code_challenge = request.args.get("code_challenge")  # **use underscore**
     code_challenge_method = request.args.get("code_challenge_method")
     if not session.get("user"):
         login_url = "https://10xer-web-production.up.railway.app/login"
         next_url = request.url
         return redirect(f"{login_url}?next={next_url}")
-    # Generate auth code
     code = str(uuid.uuid4())
     auth_codes[code] = {
         "user_id": session["user"]["id"],
@@ -277,51 +276,6 @@ def mcp_authorize():
     if state:
         redirect_url += f"&state={state}"
     return redirect(redirect_url)
-
-# @auth_bp.route("/claude/mcp-auth/authorize", methods=["GET"])
-# def mcp_authorize():
-#     # Grab 'state' param from Claude
-#     state = request.args.get("state")
-    
-#     if session.get("user"):
-#         FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID")
-#         redirect_uri = "https://claude.ai/mcp-api/oauth/callback"
-
-#         fb_oauth_url = (
-#             "https://www.facebook.com/v16.0/dialog/oauth?"
-#             f"client_id={FACEBOOK_APP_ID}"
-#             "&response_type=code"
-#             f"&redirect_uri={redirect_uri}"
-#             "&scope=ads_read,ads_management,business_management"
-#         )
-
-#         # Append state param if present (must pass through exactly)
-#         if state:
-#             fb_oauth_url += f"&state={state}"
-
-#         return redirect(fb_oauth_url)
-
-#     else:
-#         # Not logged in → redirect to login with next param
-#         login_url = "https://10xer-web-production.up.railway.app/login"
-#         # Also forward state param here so that after login you can redirect back properly
-#         next_url = "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize"
-#         if state:
-#             next_url += f"?state={state}"
-#         return redirect(f"{login_url}?next={next_url}")
-
-# @auth_bp.route("/claude/mcp-auth/authorize", methods=["GET"])
-# def mcp_authorize():
-#     FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID")
-#     redirect_uri = "https://claude.ai/mcp-api/oauth/callback"  # Must match FB app redirect URI
-#     fb_oauth_url = (
-#         "https://www.facebook.com/v16.0/dialog/oauth?"
-#         f"client_id={FACEBOOK_APP_ID}"
-#         "&response_type=code"
-#         f"&redirect_uri={redirect_uri}"
-#         "&scope=ads_read,ads_management,business_management"
-#     )
-#     return redirect(fb_oauth_url)
     
 # @auth_bp.route("/login", methods=["GET", "POST"])
 # def login():

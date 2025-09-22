@@ -135,44 +135,6 @@ def get_organization_id():
 #     else:
 #         return jsonify({"error": "Failed to forward token"}), 500
 
-import time
-
-# Temporary in-memory store for auth codes
-auth_codes = {}
-@integrations_bp.route("/claude/mcp-auth/authorize", methods=["GET"])
-def mcp_authorize():
-    # Parse OAuth params
-    response_type = request.args.get("response_type")
-    client_id = request.args.get("client_id")
-    redirect_uri = request.args.get("redirect_uri")
-    state = request.args.get("state")
-    scope = request.args.get("scope")
-    code_challenge = request.args.get("code_challenge")
-    code_challenge_method = request.args.get("code_challenge_method")
-    # Check user logged in
-    if not session.get("user"):
-        # Not logged in → redirect to login page
-        # Preserve the full original authorize URL as next param
-        next_url = request.url
-        login_url = "https://10xer-web-production.up.railway.app/login"
-        return redirect(f"{login_url}?next={next_url}")
-    # User logged in - generate auth code
-    code = str(uuid.uuid4())
-    # Store auth code with expiration and user info
-    auth_codes[code] = {
-        "user_id": session["user"]["id"],
-        "expires_at": time.time() + 300,  # valid for 5 mins
-        "code_challenge": code_challenge,
-        "code_challenge_method": code_challenge_method,
-        "scope": scope,
-        "client_id": client_id
-    }
-    # Redirect back to client with code and state
-    redirect_url = f"{redirect_uri}?code={code}"
-    if state:
-        redirect_url += f"&state={state}"
-    return redirect(redirect_url)
-
 # @integrations_bp.route("/api/mcp-auth/authorize")
 # def mcp_authorize():
 #     logger.info(f"MCP Authorization request from {request.remote_addr}")

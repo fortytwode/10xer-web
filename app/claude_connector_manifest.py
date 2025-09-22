@@ -233,18 +233,6 @@ CLAUDE_CONNECTOR_MANIFEST = {
   "auth": {
     "type": "none"
   },
-  # "connection": {
-  #   "type": "oauth2",
-  #   "authorization_url": "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize",
-  #   "token_url": "https://10xer-web-production.up.railway.app/mcp-api/token",
-  #   "scopes": ["ads_read", "ads_management", "business_management"]
-  # },
-  # "api": {
-  #   "base_url": "https://10xer-web-production.up.railway.app/mcp-api",
-  #   "authentication": {
-  #     "type": "oauth2"
-  #   }
-  # },
   "tools": [
     {
       "name": "facebook_list_ad_accounts",
