@@ -145,19 +145,21 @@ def create_app():
     FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID")
     FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET")
 
-    from flask import Blueprint, request, redirect, session
+    from flask import Blueprint, request, redirect, session, Response
     @app.route('/api/organizations/<org_id>/mcp/start-auth/<server_id>', methods=['GET'])
     def start_auth(org_id, server_id):
         # Absolute redirect_uri for Claude callback
         redirect_url = 'https://claude.ai/api/mcp/auth_callback'
         state = request.args.get('state', '')
         open_in_browser = request.args.get('open_in_browser', '0')
+
         if not session.get('user'):
             login_url = "https://10xer-web-production.up.railway.app/login"
             next_url = request.url
             return redirect(f"{login_url}?next={next_url}")
-        # Replace with your actual client ID (must be consistent)
-        client_id = "your_actual_client_id_here"
+
+        # Replace with your actual client ID
+        client_id = "d3d5cf00-bf5e-47b4-be6b-c25378dec711"
         authorize_url = (
             "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize"
             f"?response_type=code"
@@ -168,8 +170,15 @@ def create_app():
             f"&code_challenge=CODE_CHALLENGE"  # Handle PKCE properly
             f"&code_challenge_method=S256"
         )
-        # Return 307 Temporary Redirect so Claude knows to follow it
-        return redirect(authorize_url, code=307)
+
+        # Custom response with Location header
+        response = Response(status=307)
+        response.headers['Location'] = authorize_url
+
+        # Add additional custom Location header (if needed)
+        # response.headers['X-Next-Location'] = f"/settings/connectors?&server={server_id}&step=start_error"
+
+        return response
 
     # @app.route("/claude/mcp-auth/authorize", methods=["GET"])
     # def mcp_authorize():
