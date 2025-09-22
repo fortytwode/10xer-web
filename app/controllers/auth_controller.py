@@ -46,30 +46,40 @@ GOOGLE_REDIRECT_LOGIN_SUCCESS = os.getenv('GOOGLE_REDIRECT_LOGIN_SUCCESS', 'http
 
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
+    print("Debug: Entered login route")  # Debug line
+    
     if request.method == "POST":
         email = request.form["email"]
+        print(f"Debug: POST login attempt with email: {email}")  # Debug line
+        
         user = User.get_by_email(email)
-
+        print(f"Debug: User lookup result: {user}")  # Debug line
+        
         if not user:
+            print("Debug: No user found, creating new user")  # Debug line
             # New user registration
             user = User.create(email)
             is_email_verified = False
         else:
             is_email_verified = user.user_dict.get("isEmailVerify", False)
+            print(f"Debug: User email verification status: {is_email_verified}")  # Debug line
 
         if not is_email_verified:
             token = str(uuid.uuid4())
+            print(f"Debug: Email not verified, generated token: {token}")  # Debug line
             User.save_email_token(email, token)
             send_verification_email(email, token)
             return redirect(url_for("auth.verify_request", provider="email", type="email"))
 
         # Log the user in so current_user will work
         login_user(user)
+        print(f"Debug: User logged in: {user}")  # Debug line
 
         # Check if this is part of MCP flow
         mcp_redirect = request.args.get('mcp_redirect')
         mcp_state = request.args.get('mcp_state') 
         mcp_client = request.args.get('mcp_client')
+        print(f"Debug: MCP params - redirect: {mcp_redirect}, state: {mcp_state}, client: {mcp_client}")  # Debug line
         
         if mcp_redirect and mcp_state:
             # This is MCP flow - save params and start Facebook OAuth
@@ -78,10 +88,11 @@ def login():
                 'mcp_state': mcp_state,
                 'mcp_client_id': mcp_client
             })
+            print("Debug: Starting Facebook OAuth flow")  # Debug line
             
-            # Start Facebook OAuth flow
             fb_state = str(uuid.uuid4())
             session['fb_oauth_state'] = fb_state
+            print(f"Debug: Generated fb_oauth_state: {fb_state}")  # Debug line
             
             fb_auth_url = (
                 f"https://www.facebook.com/v23.0/dialog/oauth?"
@@ -91,15 +102,18 @@ def login():
                 f"response_type=code&"
                 f"state={fb_state}"
             )
+            print(f"Debug: Redirecting to Facebook OAuth URL: {fb_auth_url}")  # Debug line
             return redirect(fb_auth_url)
 
         # Regular login flow
+        print("Debug: Redirecting to dashboard")  # Debug line
         return redirect(url_for("dashboard.dashboard"))
 
     # GET request - check for MCP params and preserve them
     mcp_redirect = request.args.get('mcp_redirect')
     mcp_state = request.args.get('mcp_state')
     mcp_client = request.args.get('mcp_client')
+    print(f"Debug: GET request - MCP params: redirect={mcp_redirect}, state={mcp_state}, client={mcp_client}")  # Debug line
     
     return render_template("login.html", 
                          mcp_redirect=mcp_redirect, 
@@ -221,48 +235,52 @@ def google_callback():
         print("Login failed with exception:", str(e))
         return f"Login failed: {str(e)}", 500
     
-# @auth_bp.route("/claude/mcp-auth/authorize", methods=["GET"])
-# def mcp_authorize():
-#     # Check 10Xer login
-#     if session.get("user"):
-#         return redirect("https://10xer-web-production.up.railway.app/integrations/integrations")
-    
-#     # Not logged in → redirect to login
-#     login_url = "https://10xer-web-production.up.railway.app/login"
-#     next_url = "https://10xer-web-production.up.railway.app/integrations/integrations"
-#     return redirect(f"{login_url}?next={next_url}")
-
 @auth_bp.route("/claude/mcp-auth/authorize", methods=["GET"])
 def mcp_authorize():
-    # Grab 'state' param from Claude
-    state = request.args.get("state")
+    print("Debug: Entered mcp_authorize route")  # Debug line
     
+    # Check 10Xer login
     if session.get("user"):
-        FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID")
-        redirect_uri = "https://claude.ai/mcp-api/oauth/callback"
+        print("Debug: User is logged in, redirecting to integrations")  # Debug line
+        return redirect("https://10xer-web-production.up.railway.app/integrations/integrations")
+    
+    # Not logged in → redirect to login
+    login_url = "https://10xer-web-production.up.railway.app/login"
+    next_url = "https://10xer-web-production.up.railway.app/integrations/integrations"
+    print(f"Debug: User not logged in, redirecting to login page with next={next_url}")  # Debug line
+    return redirect(f"{login_url}?next={next_url}")
 
-        fb_oauth_url = (
-            "https://www.facebook.com/v16.0/dialog/oauth?"
-            f"client_id={FACEBOOK_APP_ID}"
-            "&response_type=code"
-            f"&redirect_uri={redirect_uri}"
-            "&scope=ads_read,ads_management,business_management"
-        )
+# @auth_bp.route("/claude/mcp-auth/authorize", methods=["GET"])
+# def mcp_authorize():
+#     # Grab 'state' param from Claude
+#     state = request.args.get("state")
+    
+#     if session.get("user"):
+#         FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID")
+#         redirect_uri = "https://claude.ai/mcp-api/oauth/callback"
 
-        # Append state param if present (must pass through exactly)
-        if state:
-            fb_oauth_url += f"&state={state}"
+#         fb_oauth_url = (
+#             "https://www.facebook.com/v16.0/dialog/oauth?"
+#             f"client_id={FACEBOOK_APP_ID}"
+#             "&response_type=code"
+#             f"&redirect_uri={redirect_uri}"
+#             "&scope=ads_read,ads_management,business_management"
+#         )
 
-        return redirect(fb_oauth_url)
+#         # Append state param if present (must pass through exactly)
+#         if state:
+#             fb_oauth_url += f"&state={state}"
 
-    else:
-        # Not logged in → redirect to login with next param
-        login_url = "https://10xer-web-production.up.railway.app/login"
-        # Also forward state param here so that after login you can redirect back properly
-        next_url = "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize"
-        if state:
-            next_url += f"?state={state}"
-        return redirect(f"{login_url}?next={next_url}")
+#         return redirect(fb_oauth_url)
+
+#     else:
+#         # Not logged in → redirect to login with next param
+#         login_url = "https://10xer-web-production.up.railway.app/login"
+#         # Also forward state param here so that after login you can redirect back properly
+#         next_url = "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize"
+#         if state:
+#             next_url += f"?state={state}"
+#         return redirect(f"{login_url}?next={next_url}")
 
 # @auth_bp.route("/claude/mcp-auth/authorize", methods=["GET"])
 # def mcp_authorize():
