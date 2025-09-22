@@ -149,7 +149,7 @@ def create_app():
     @app.route('/api/organizations/<org_id>/mcp/start-auth/<server_id>', methods=['GET'])
     def start_auth(org_id, server_id):
         # Absolute redirect_uri for Claude callback
-        redirect_url = request.args.get('redirect_url', 'https://claude.ai/api/mcp/auth_callback')
+        redirect_url = 'https://claude.ai/api/mcp/auth_callback'
         state = request.args.get('state', '')
         open_in_browser = request.args.get('open_in_browser', '0')
         if not session.get('user'):
