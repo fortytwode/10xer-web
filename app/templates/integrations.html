@@ -89,7 +89,7 @@
       method: "GET",
       credentials: "same-origin"
     })
-    then(data => {
+    .then(data => {
       if (data.success && data.access_token) {
         // Show disconnect UI
         fbConnectedDiv.classList.remove("hidden");
