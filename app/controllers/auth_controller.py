@@ -146,11 +146,23 @@ from flask import redirect, make_response, session
 @auth_bp.route("/logout")
 @login_required
 def logout():
+    print("Logout route called")
+    
     logout_user()
+    print(f"User logged out. current_user.is_authenticated: {current_user.is_authenticated}")
+    
+    print(f"Session before clear: {dict(session)}")
     session.clear()  # Optional: clear all session keys
+    print("Session cleared")
+    
     resp = make_response(redirect("/"))
+    print("Redirect response created")
+    
     resp.set_cookie('session', '', expires=0)  # Remove session cookie
+    print("Session cookie expired")
+    
     return resp
+
 
 @auth_bp.route("/login/google")
 def google_login():

@@ -78,31 +78,31 @@
 </div>
 
 <script>
-  // Run after DOM loaded
   window.addEventListener("DOMContentLoaded", () => {
     const fbConnectDiv = document.getElementById("facebook-connect");
     const fbConnectedDiv = document.getElementById("facebook-connected");
     const disconnectBtn = document.getElementById("facebook-disconnect-btn");
+    const fbContinueDiv = document.getElementById("facebook-continue-div");
 
-    // Fetch the current Facebook token from your new API
+    // Fetch the current Facebook token
     fetch("{{ url_for('integrations.api_facebook_token') }}", {
       method: "GET",
       credentials: "same-origin"
     })
+    .then(response => response.json())
     .then(data => {
       if (data.success && data.access_token) {
-        // Show disconnect UI
+        // Show disconnect UI (connected)
         fbConnectedDiv.classList.remove("hidden");
         fbConnectDiv.classList.add("hidden");
 
         // Show Continue button
-        const fbContinueDiv = document.getElementById("facebook-continue-div");
         fbContinueDiv.classList.remove("hidden");
 
+        // Add event listener for Continue button
         const continueBtn = document.getElementById("facebook-continue-btn");
         continueBtn.addEventListener("click", async () => {
           try {
-            // Send FB token to backend endpoint that forwards it to Claude
             const res = await fetch("{{ url_for('integrations.forward_facebook_to_claude') }}", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -112,7 +112,7 @@
 
             if (res.ok) {
               alert("✅ Facebook connected to Claude successfully!");
-              // Optionally redirect Claude UI or refresh integration
+              // Optionally redirect or refresh UI here
             } else {
               alert("❌ Failed to forward token to Claude.");
             }
@@ -122,10 +122,19 @@
           }
         });
       } else {
+        // Show connect UI (not connected)
         fbConnectDiv.classList.remove("hidden");
         fbConnectedDiv.classList.add("hidden");
+        fbContinueDiv.classList.add("hidden");
       }
     })
+    .catch(error => {
+      console.error("Error fetching Facebook token:", error);
+      // On error, fallback to connect UI
+      fbConnectDiv.classList.remove("hidden");
+      fbConnectedDiv.classList.add("hidden");
+      fbContinueDiv.classList.add("hidden");
+    });
 
     // Disconnect button handler
     disconnectBtn.addEventListener("click", async () => {
@@ -150,12 +159,14 @@
           alert("Facebook integration disconnected successfully.");
           fbConnectDiv.classList.remove("hidden");
           fbConnectedDiv.classList.add("hidden");
-          localStorage.clear()
+          fbContinueDiv.classList.add("hidden");
+
+          localStorage.clear();
           document.cookie.split(";").forEach(cookie => {
-          document.cookie = cookie
-            .replace(/^ +/, "") // Trim spaces
-            .replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/");
-        });
+            document.cookie = cookie
+              .replace(/^ +/, "") // Trim spaces
+              .replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/");
+          });
         } else if (response.status === 404) {
           alert("No Facebook integration found to disconnect.");
         } else {
@@ -167,6 +178,7 @@
       }
     });
   });
+
   async function syncToken() {
     const statusSpan = document.getElementById("sync-status");
     statusSpan.textContent = "Opening Claude.ai login window...";
@@ -180,7 +192,6 @@
 
     let receivedOrgId = null;
 
-    // Listen for postMessage from Claude.ai window
     function messageHandler(event) {
       if (event.origin !== "https://claude.ai") return; // SECURITY: check origin
       if (event.data?.lastActiveOrg) {
@@ -194,7 +205,6 @@
 
     window.addEventListener("message", messageHandler);
 
-    // Timeout fallback: after 30 seconds, if no message, show manual input
     setTimeout(() => {
       if (!receivedOrgId) {
         window.removeEventListener("message", messageHandler);
@@ -252,11 +262,5 @@
       statusSpan.classList.add("text-red-600");
     }
   }
-
-  // Your existing DOMContentLoaded event listener code below ...
-  window.addEventListener("DOMContentLoaded", () => {
-    // your existing facebook connect/disconnect code here...
-  });
-
 </script>
 {% endblock %}

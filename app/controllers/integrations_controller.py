@@ -20,14 +20,34 @@ FB_REDIRECT_URI = os.getenv("FACEBOOK_REDIRECT_URI", "http://localhost:8000/inte
 if not FB_CLIENT_ID or not FB_CLIENT_SECRET:
     logger.error("Facebook App ID or Secret not set in environment variables!")
 
+# @integrations_bp.route("/integrations", methods=["GET", "POST"])
+# @login_required
+# def integrations():
+#     user = User.get(current_user.id)
+#     if request.method == "POST":
+#         # TODO: Add handling for other integrations or "skip"
+#         flash("Integration process completed or skipped.", "info")
+#         return redirect(url_for("dashboard.dashboard"))
+#     return render_template("integrations.html", user=user)
+
 @integrations_bp.route("/integrations", methods=["GET", "POST"])
 @login_required
 def integrations():
     user = User.get(current_user.id)
+    oauth_redirect = request.args.get("oauth_redirect")
     if request.method == "POST":
-        # TODO: Add handling for other integrations or "skip"
+        # Handle form submission, integration logic etc.
         flash("Integration process completed or skipped.", "info")
+        if oauth_redirect:
+            return redirect(oauth_redirect)  # Redirect to Claude callback with code & state
         return redirect(url_for("dashboard.dashboard"))
+    # For GET request: if user already integrated or session valid, redirect immediately
+    if oauth_redirect:
+        # If user is already authorized or integration exists, redirect immediately
+        # You might want to check if user is already connected (depends on your logic)
+        # For now, just redirect to the provided URL
+        return redirect(oauth_redirect)
+    # Otherwise render integration page
     return render_template("integrations.html", user=user)
 
 @integrations_bp.route("/forward_token_to_10xer", methods=["POST"])
@@ -119,33 +139,71 @@ def get_organization_id():
 #     else:
 #         return jsonify({"error": "Failed to forward token"}), 500
 
-@integrations_bp.route("/api/mcp-auth/authorize")
+import time
+
+# Temporary in-memory store for auth codes
+auth_codes = {}
+@integrations_bp.route("/claude/mcp-auth/authorize", methods=["GET"])
 def mcp_authorize():
-    logger.info(f"MCP Authorization request from {request.remote_addr}")
-    logger.info(f"Args: {dict(request.args)}")
-    
+    # Parse OAuth params
+    response_type = request.args.get("response_type")
     client_id = request.args.get("client_id")
     redirect_uri = request.args.get("redirect_uri")
     state = request.args.get("state")
+    scope = request.args.get("scope")
+    code_challenge = request.args.get("code_challenge")
+    code_challenge_method = request.args.get("code_challenge_method")
+    # Check user logged in
+    if not session.get("user"):
+        # Not logged in → redirect to login page
+        # Preserve the full original authorize URL as next param
+        next_url = request.url
+        login_url = "https://10xer-web-production.up.railway.app/login"
+        return redirect(f"{login_url}?next={next_url}")
+    # User logged in - generate auth code
+    code = str(uuid.uuid4())
+    # Store auth code with expiration and user info
+    auth_codes[code] = {
+        "user_id": session["user"]["id"],
+        "expires_at": time.time() + 300,  # valid for 5 mins
+        "code_challenge": code_challenge,
+        "code_challenge_method": code_challenge_method,
+        "scope": scope,
+        "client_id": client_id
+    }
+    # Redirect back to client with code and state
+    redirect_url = f"{redirect_uri}?code={code}"
+    if state:
+        redirect_url += f"&state={state}"
+    return redirect(redirect_url)
+
+# @integrations_bp.route("/api/mcp-auth/authorize")
+# def mcp_authorize():
+#     logger.info(f"MCP Authorization request from {request.remote_addr}")
+#     logger.info(f"Args: {dict(request.args)}")
     
-    if not all([client_id, redirect_uri, state]):
-        logger.error("Missing OAuth parameters")
-        return jsonify({"error": "Missing OAuth parameters"}), 400
+#     client_id = request.args.get("client_id")
+#     redirect_uri = request.args.get("redirect_uri")
+#     state = request.args.get("state")
     
-    # Store params and redirect directly to Facebook OAuth
-    session.update({
-        'mcp_redirect_uri': redirect_uri,
-        'mcp_state': state,
-        'mcp_client_id': client_id
-    })
+#     if not all([client_id, redirect_uri, state]):
+#         logger.error("Missing OAuth parameters")
+#         return jsonify({"error": "Missing OAuth parameters"}), 400
     
-    fb_state = str(uuid.uuid4())
-    session['fb_oauth_state'] = fb_state
+#     # Store params and redirect directly to Facebook OAuth
+#     session.update({
+#         'mcp_redirect_uri': redirect_uri,
+#         'mcp_state': state,
+#         'mcp_client_id': client_id
+#     })
     
-    fb_auth_url = f"https://www.facebook.com/v23.0/dialog/oauth?client_id={FB_CLIENT_ID}&redirect_uri={FB_REDIRECT_URI}&scope=ads_read,ads_management,business_management&response_type=code&state={fb_state}"
+#     fb_state = str(uuid.uuid4())
+#     session['fb_oauth_state'] = fb_state
     
-    logger.info(f"Redirecting to Facebook OAuth: {fb_auth_url}")
-    return redirect(fb_auth_url)
+#     fb_auth_url = f"https://www.facebook.com/v23.0/dialog/oauth?client_id={FB_CLIENT_ID}&redirect_uri={FB_REDIRECT_URI}&scope=ads_read,ads_management,business_management&response_type=code&state={fb_state}"
+    
+#     logger.info(f"Redirecting to Facebook OAuth: {fb_auth_url}")
+#     return redirect(fb_auth_url)
 
 # @integrations_bp.route("/api/mcp-auth/authorize")
 # def mcp_authorize():
