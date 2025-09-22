@@ -246,21 +246,37 @@ def google_callback():
     except Exception as e:
         print("Login failed with exception:", str(e))
         return f"Login failed: {str(e)}", 500
-    
+
+import time    
+auth_codes = {}  
+  
 @auth_bp.route("/claude/mcp-auth/authorize", methods=["GET"])
 def mcp_authorize():
-    print("Debug: Entered mcp_authorize route")  # Debug line
-    
-    # Check 10Xer login
-    if session.get("user"):
-        print("Debug: User is logged in, redirecting to integrations")  # Debug line
-        return redirect("https://10xer-web-production.up.railway.app/integrations/integrations")
-    
-    # Not logged in → redirect to login
-    login_url = "https://10xer-web-production.up.railway.app/login"
-    next_url = "https://10xer-web-production.up.railway.app/integrations/integrations"
-    print(f"Debug: User not logged in, redirecting to login page with next={next_url}")  # Debug line
-    return redirect(f"{login_url}?next={next_url}")
+    response_type = request.args.get("response_type")
+    client_id = request.args.get("client_id")
+    redirect_uri = request.args.get("redirect_uri")
+    state = request.args.get("state")
+    scope = request.args.get("scope")
+    code_challenge = request.args.get("code_challenge")
+    code_challenge_method = request.args.get("code_challenge_method")
+    if not session.get("user"):
+        login_url = "https://10xer-web-production.up.railway.app/login"
+        next_url = request.url
+        return redirect(f"{login_url}?next={next_url}")
+    # Generate auth code
+    code = str(uuid.uuid4())
+    auth_codes[code] = {
+        "user_id": session["user"]["id"],
+        "expires_at": time.time() + 300,
+        "code_challenge": code_challenge,
+        "code_challenge_method": code_challenge_method,
+        "scope": scope,
+        "client_id": client_id,
+    }
+    redirect_url = f"{redirect_uri}?code={code}"
+    if state:
+        redirect_url += f"&state={state}"
+    return redirect(redirect_url)
 
 # @auth_bp.route("/claude/mcp-auth/authorize", methods=["GET"])
 # def mcp_authorize():

@@ -36,18 +36,14 @@ def integrations():
     user = User.get(current_user.id)
     oauth_redirect = request.args.get("oauth_redirect")
     if request.method == "POST":
-        # Handle form submission, integration logic etc.
+        # Handle form submission, integration logic here
         flash("Integration process completed or skipped.", "info")
         if oauth_redirect:
-            return redirect(oauth_redirect)  # Redirect to Claude callback with code & state
+            return redirect(oauth_redirect)
         return redirect(url_for("dashboard.dashboard"))
-    # For GET request: if user already integrated or session valid, redirect immediately
+    # If oauth_redirect is present and user is already authorized, redirect immediately
     if oauth_redirect:
-        # If user is already authorized or integration exists, redirect immediately
-        # You might want to check if user is already connected (depends on your logic)
-        # For now, just redirect to the provided URL
         return redirect(oauth_redirect)
-    # Otherwise render integration page
     return render_template("integrations.html", user=user)
 
 @integrations_bp.route("/forward_token_to_10xer", methods=["POST"])

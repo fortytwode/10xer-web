@@ -208,7 +208,29 @@ def create_app():
     FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID")
     FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET")
 
-    
+    from flask import Blueprint, request, redirect, session
+    @app.route('/api/organizations/<org_id>/mcp/start-auth/<server_id>', methods=['GET'])
+    def start_auth(org_id, server_id):
+        redirect_url = request.args.get('redirect_url', '/settings/connectors')
+        state = request.args.get('state', '')
+        open_in_browser = request.args.get('open_in_browser', '0')
+        if not session.get('user'):
+            login_url = "https://10xer-web-production.up.railway.app/login"
+            next_url = request.url
+            return redirect(f"{login_url}?next={next_url}")
+        # Build authorize URL (replace YOUR_CLIENT_ID with actual client ID from your MCP config)
+        authorize_url = (
+            "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize"
+            f"?response_type=code"
+            f"&client_id=YOUR_CLIENT_ID"
+            f"&redirect_uri={redirect_url}"
+            f"&state={state}"
+            f"&scope=user_profile+read_ai_actions+write_ai_actions"
+            f"&code_challenge=CODE_CHALLENGE"
+            f"&code_challenge_method=S256"
+        )
+        return redirect(authorize_url)
+
     # @app.route("/claude/mcp-auth/authorize", methods=["GET"])
     # def mcp_authorize():
     #     fb_oauth_url = (
