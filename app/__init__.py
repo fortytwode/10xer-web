@@ -295,6 +295,25 @@ def create_app():
         #     "expires_in": token_data.get("expires_in"),
         #     "refresh_token": token_data.get("refresh_token")
         # })
+
+
+    @app.route('/.well-known/oauth-authorization-server/claude/testing_manifest.json', methods=["GET"])
+    def well_known_auth_server():
+        return jsonify({
+            "issuer": "https://10xer-web-production.up.railway.app",
+            "authorization_endpoint": "https://10xer-web-production.up.railway.app/claude/mcp-auth/authorize",
+            "token_endpoint": "https://10xer-web-production.up.railway.app/mcp-api/token",
+            "scopes_supported": ["ads_read"],
+            "response_types_supported": ["code"],
+            "grant_types_supported": ["authorization_code"],
+            "code_challenge_methods_supported": ["S256"]
+        })
+    @app.route('/.well-known/oauth-protected-resource/claude/testing_manifest.json', methods=["GET"])
+    def well_known_protected_resource():
+        return jsonify({
+            "issuer": "https://10xer-web-production.up.railway.app",
+            "introspection_endpoint": "https://10xer-web-production.up.railway.app/mcp-api/introspect"
+        })
         
     @app.route('/images/<path:filename>')
     def images(filename):
