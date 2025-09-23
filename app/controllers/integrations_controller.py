@@ -46,6 +46,36 @@ def integrations():
         return redirect(oauth_redirect)
     return render_template("integrations.html", user=user)
 
+
+@integrations_bp.route("/getOrganizationId", methods=["GET", "POST"])
+def getOrganizationId():
+    # Create session to maintain cookies
+    session = requests.Session()
+    
+    # Step 1: Visit main page to get cookies
+    session.get('https://claude.ai/')
+    
+    # Step 2: Make API request (cookies automatically included)
+    api_response = session.get('https://claude.ai/api/organizations')
+    
+    # Extract complete cookie header
+    complete_cookie_header = api_response.request.headers.get('Cookie', '')
+    
+    # Get all session cookies as dict
+    session_cookies = dict(session.cookies)
+    
+    print(f"Complete Cookie header for API: {complete_cookie_header}")
+    print(f"All session cookies: {session_cookies}")
+    print(f"API Response status: {api_response.status_code}")
+    
+    return {
+        "complete_cookie_header": complete_cookie_header,
+        "session_cookies": session_cookies,
+        "api_response_status": api_response.status_code,
+        "api_response_text": api_response.text[:500] if api_response.text else "",
+        "request_headers": dict(api_response.request.headers)
+    }
+
 @integrations_bp.route("/forward_token_to_10xer", methods=["POST"])
 @login_required
 def forward_token():

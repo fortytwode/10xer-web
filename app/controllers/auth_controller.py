@@ -276,7 +276,7 @@ def mcp_authorize():
     if state:
         redirect_url += f"&state={state}"
     return redirect(redirect_url)
-    
+
 # @auth_bp.route("/login", methods=["GET", "POST"])
 # def login():
 #     if request.method == "POST":

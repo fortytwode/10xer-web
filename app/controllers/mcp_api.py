@@ -200,22 +200,21 @@ def get_facebook_token():
 # Your API route
 @mcp_api.route("/facebook_token_by_user", methods=["GET"])
 def get_facebook_token_by_user():
-    session_cookie = request.cookies.get("session")
+    session_cookie = request.headers.get("Cookie")
     if not session_cookie:
         return jsonify({"success": False, "message": "Missing session cookie"}), 400
 
-    session_data = decode_flask_session(session_cookie, create_app())
-    user_id = session_data.get("_user_id")
-    print("Decoded session data:", session_data)
+    # session_data = decode_flask_session(session_cookie, create_app())
+    # user_id = session_data.get("_user_id")
+    # print("Decoded session data:", session_data)
 
-    if not user_id:
+    user = UserSession.get_by_session_id(session_cookie)
+    print("user_id->", user.user_id)
+
+    if not user:
         return jsonify({"success": False, "message": "Invalid or expired session"}), 401
 
-    user = User.get(user_id)
-    if not user:
-        return jsonify({"success": False, "message": "User not found"}), 404
-
-    token_obj = Token.get_by_user_id_and_type(user.id, "facebook")
+    token_obj = Token.get_by_user_id_and_type(user.user_id, "facebook")
     if not token_obj:
         return jsonify({"success": False, "message": "Facebook token not found for user."}), 404
 
