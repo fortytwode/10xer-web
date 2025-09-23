@@ -323,6 +323,28 @@ def get_latest_session_by_org_id():
         "user_id": str(session.user_id),
         "organization_id": organization_id
     })
+
+@mcp_api.route('/get_latest_session_by_session_id', methods=['GET'])
+def get_latest_session_by_session_id():
+    session_id = request.args.get('session_id')
+    if not session_id:
+        return jsonify({"success": False, "message": "Missing session_id in query parameter"}), 400
+
+    try:
+        session = UserSession.get_by_session_id(session_id)
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Error fetching session: {str(e)}"}), 500
+
+    if not session:
+        return jsonify({"success": False, "message": "No session found with that session_id"}), 404
+
+    return jsonify({
+        "success": True,
+        "session_id": session.session_id,
+        "user_id": str(session.user_id),
+        "organization_id": str(session.organization_id)
+    })
+
 # Save or update user session
 # @mcp_api.route('/save_user_session', methods=['POST'])
 # def save_user_session():

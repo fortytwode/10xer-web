@@ -86,3 +86,11 @@ class UserSession:
             sort=[("updated_at", -1)]
         )
         return cls.from_dict(doc) if doc else None
+    
+    @classmethod
+    def get_by_session_id(cls, session_id):
+        if cls.collection is None:
+            raise RuntimeError("UserSession.collection is not initialized.")
+
+        doc = cls.collection.find_one({"session_id": session_id})
+        return cls.from_dict(doc) if doc else None
