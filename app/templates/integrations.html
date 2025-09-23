@@ -67,13 +67,15 @@
     </button>
     <span id="sync-status" class="ml-4 text-sm text-gray-600"></span>
   </div>
-  <div id="facebook-continue-div" class="mt-4 hidden">
-    <button
+    <div id="facebook-continue-div" class="mt-4 hidden">
+    <a
+      href="https://claude.ai/settings/connectors"
+      rel="noopener noreferrer"
       id="facebook-continue-btn"
-      class="bg-green-600 text-white text-sm font-semibold px-4 py-1 rounded hover:bg-green-700 transition"
+      class="bg-green-600 text-white text-sm font-semibold px-4 py-1 rounded hover:bg-green-700 transition inline-block text-center"
     >
       Continue
-    </button>
+    </a>
   </div>
 </div>
 
@@ -100,27 +102,6 @@
         fbContinueDiv.classList.remove("hidden");
 
         // Add event listener for Continue button
-        const continueBtn = document.getElementById("facebook-continue-btn");
-        continueBtn.addEventListener("click", async () => {
-          try {
-            const res = await fetch("{{ url_for('integrations.forward_facebook_to_claude') }}", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              credentials: "same-origin",
-              body: JSON.stringify({ access_token: data.access_token })
-            });
-
-            if (res.ok) {
-              alert("✅ Facebook connected to Claude successfully!");
-              // Optionally redirect or refresh UI here
-            } else {
-              alert("❌ Failed to forward token to Claude.");
-            }
-          } catch (error) {
-            console.error("Error sending token to Claude:", error);
-            alert("❌ Unexpected error.");
-          }
-        });
       } else {
         // Show connect UI (not connected)
         fbConnectDiv.classList.remove("hidden");
