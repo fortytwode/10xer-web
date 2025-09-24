@@ -262,16 +262,27 @@ def get_organization_id():
 @login_required
 def facebook_disconnect():
     try:
+        logger.info(f"Disconnect request for user: {current_user.id}")
         token_obj = Token.get_by_user_id_and_type(current_user.id, "facebook")
         if token_obj:
-            Token.collection.delete_one({"_id": token_obj.id})
-            logger.info(f"User {current_user.id} disconnected Facebook integration.")
-            return jsonify({"message": "Facebook integration disconnected successfully."}), 200
+            logger.info(f"Found token: {token_obj.id} (type: {type(token_obj.id)})")
+            
+            result = Token.collection.delete_one({"_id": token_obj.id})
+            logger.debug(f"Delete result: {result.deleted_count} document(s) deleted.")
+            
+            if result.deleted_count == 1:
+                logger.info(f"User {current_user.id} disconnected Facebook integration.")
+                return jsonify({"message": "Facebook integration disconnected successfully."}), 200
+            else:
+                logger.warning(f"Token found but failed to delete for user {current_user.id}")
+                return jsonify({"error": "Failed to delete Facebook token."}), 500
         else:
+            logger.warning(f"No Facebook token found for user {current_user.id}")
             return jsonify({"error": "No Facebook integration found to disconnect."}), 404
     except Exception as e:
-        logger.error(f"Error disconnecting Facebook integration for user {current_user.id}: {e}")
+        logger.exception(f"Error disconnecting Facebook integration for user {current_user.id}")
         return jsonify({"error": "Failed to disconnect Facebook integration."}), 500
+
 
 @integrations_bp.route("/facebook/connect")
 @login_required

@@ -61,7 +61,7 @@
     <button
       onclick="syncToken()"
       id="sync-token-btn"
-      class="bg-indigo-600 text-white text-sm font-semibold px-4 py-1 rounded hover:bg-indigo-700 transition whitespace-nowrap"
+      class="bg-indigo-600 text-white text-sm font-semibold px-4 py-1 rounded hover:bg-indigo-700 transition whitespace-nowrap hidden"
     >
       Sync Token
     </button>
@@ -85,6 +85,7 @@
     const fbConnectedDiv = document.getElementById("facebook-connected");
     const disconnectBtn = document.getElementById("facebook-disconnect-btn");
     const fbContinueDiv = document.getElementById("facebook-continue-div");
+    const syncToken = document.getElementById("sync-token-btn");
 
     // Fetch the current Facebook token
     fetch("{{ url_for('integrations.api_facebook_token') }}", {
@@ -99,6 +100,7 @@
         fbConnectDiv.classList.add("hidden");
 
         // Show Continue button
+        syncToken.classList.remove('hidden');
         fbContinueDiv.classList.remove("hidden");
 
         // Add event listener for Continue button

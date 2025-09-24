@@ -10,7 +10,7 @@ class Token:
         if not token_dict:
             raise ValueError("token_dict cannot be None or empty")
         self.token_dict = token_dict
-        self.id = str(token_dict["_id"])  # Keep as string if exposed externally
+        self.id = token_dict["_id"]  # Keep it as ObjectId
 
     @property
     def token(self):
