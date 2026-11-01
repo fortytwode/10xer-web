@@ -3,9 +3,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+def required_environment(name):
+    value = os.getenv(name)
+    if not value or not value.strip():
+        raise RuntimeError(f"Set {name} in the runtime environment before starting the app")
+    return value
+
+
 class Config:
-    MONGO_URI = os.getenv("MONGO_URI")
-    SECRET_KEY = os.getenv("SECRET_KEY") or "fallback-secret"
+    MONGO_URI = required_environment("MONGO_URI")
+    SECRET_KEY = required_environment("SECRET_KEY")
 
 class MCPConfig:
     FACEBOOK_API_VERSION = "v18.0"
