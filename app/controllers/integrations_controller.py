@@ -2,6 +2,8 @@ from flask import Blueprint, render_template, redirect, url_for, request, sessio
 from flask_login import login_required, current_user
 from app.models.user import User
 from app.models.token import Token
+from app.controllers.auth_controller import MCP_REDIRECT_URI
+from urllib.parse import urlencode
 import requests
 import os
 import uuid
@@ -531,6 +533,9 @@ def facebook_callback():
         logger.warning(f"Invalid OAuth state. Received: {state}, Expected: {stored_state}")
         abort(400, description="Invalid OAuth state")
 
+    if session.get('mcp_redirect_uri') not in (None, MCP_REDIRECT_URI):
+        abort(400, description="Unsupported MCP redirect URI")
+
     if not code:
         logger.warning("Missing OAuth code in callback")
         flash("Missing OAuth code", "warning")
@@ -605,7 +610,7 @@ def facebook_callback():
         
         # Redirect back to Claude with authorization code
         logger.info(f"MCP OAuth flow completed, redirecting to Claude: {mcp_redirect_uri}")
-        return redirect(f"{mcp_redirect_uri}?code={mcp_code}&state={mcp_state}")
+        return redirect(f"{MCP_REDIRECT_URI}?{urlencode({'code': mcp_code, 'state': mcp_state})}")
     
     else:
         # Regular web app integration flow
