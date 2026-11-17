@@ -1,7 +1,4 @@
 from flask import Blueprint, request, jsonify, Response, stream_with_context, redirect
-from flask.sessions import SecureCookieSessionInterface
-from app import create_app
-from app.utils.decode_session import decode_flask_session
 from app.models.user import User
 from app.models.token import Token
 import uuid
@@ -69,7 +66,11 @@ def token_exchange():
     """
     data = request.args if request.method=="GET" else request.get_json(force=True)
     code = data.get("code")
-    user_id = data.get("user_id")  # optional if you know the user
+    owner = None
+    if data.get("user_id") or request.headers.get("Authorization"):
+        owner, failure = authenticated_account()
+        if failure:
+            return failure
 
     if not code:
         return jsonify({"error": "Missing code"}), 400
@@ -92,58 +93,38 @@ def token_exchange():
     if not access_token:
         return jsonify({"error": "Facebook token exchange failed", "details": fb_data}), 400
 
-    # Save token in MongoDB if user_id is provided
-    if user_id:
-        Token.create(user_id=user_id, token_type="facebook", token=access_token, extra_data=fb_data)
+    if owner:
+        Token.create(user_id=owner.id, token_type="facebook", token=access_token, extra_data=fb_data)
 
     # ✅ Redirect popup to Claude to close it
     redirect_url = f"https://claude.ai/mcp-api/oauth/callback?access_token={access_token}&token_type=Bearer&expires_in={expires_in}"
     return redirect(redirect_url)
 
-@mcp_api.route("/facebook_token", methods=["GET"])
-def get_facebook_token():
-    """Legacy endpoint for API key authentication"""
-    auth_header = request.headers.get("Authorization")
-    logger.debug(f"AUTH HEADER RECEIVED: {auth_header}")
-    
-    if not auth_header:
-        return jsonify({
-            "success": False,
-            "message": "Missing 'Authorization' header."
-        }), 401
-
-    parts = auth_header.split()
-    logger.debug(f"Header parts: {parts}")
-    
+def authenticated_account():
+    parts = request.headers.get("Authorization", "").split()
     if len(parts) != 2 or parts[0].lower() != "bearer":
-        return jsonify({
-            "success": False,
-            "message": "Invalid Authorization header format. Expected 'Bearer <API_KEY>'"
-        }), 401
-    
-    api_key = parts[1]
-    logger.debug(f"API Key extracted: {api_key}")
-    
-    user = User.get_by_api_key(api_key)
-    logger.debug(f"User fetched: {user}")
-    
-    if not user:
-        return jsonify({
-            "success": False,
-            "message": "Invalid or expired API key."
-        }), 403
+        return None, (jsonify({"success": False, "message": "An account API key is required."}), 401)
+    user = User.get_by_api_key(parts[1])
+    if user is None:
+        return None, (jsonify({"success": False, "message": "Invalid account API key."}), 403)
+    return user, None
 
+
+def account_key_required(view):
+    @wraps(view)
+    def authenticated(*args, **kwargs):
+        user, failure = authenticated_account()
+        if failure:
+            return failure
+        return view(user, *args, **kwargs)
+    return authenticated
+
+
+@mcp_api.route("/facebook_token", methods=["GET"])
+@mcp_api.route("/facebook_token_by_user", methods=["GET"])
+@account_key_required
+def get_facebook_token(user):
     token_obj = Token.get_by_user_id_and_type(user.id, "facebook")
-    logger.debug(f"Token object fetched: {token_obj}")
-
-    if token_obj:
-        logger.debug(f"Token ID: {token_obj.id}")
-        logger.debug(f"User ID: {token_obj.user_id}")
-        logger.debug(f"Token Type: {token_obj.token_type}")
-        logger.debug(f"Access Token: {token_obj.token}")   
-    else:
-        logger.debug("No token object found.")
-
     if not token_obj:
         return jsonify({
             "success": False,
@@ -197,30 +178,6 @@ def get_facebook_token():
 #         "facebook_access_token": token_obj.token
 #     }), 200
 
-# Your API route
-@mcp_api.route("/facebook_token_by_user", methods=["GET"])
-def get_facebook_token_by_user():
-    session_cookie = request.headers.get("Cookie")
-    if not session_cookie:
-        return jsonify({"success": False, "message": "Missing session cookie"}), 400
-
-    user = UserSession.get_by_session_id(session_cookie)
-
-    if not user:
-        return jsonify({"success": False, "message": "Invalid or expired session"}), 401
-
-    print("user_id->", user.user_id)  # <- Only access after confirming `user` is not None
-
-    token_obj = Token.get_by_user_id_and_type(user.user_id, "facebook")
-    if not token_obj:
-        return jsonify({"success": False, "message": "Facebook token not found for user."}), 404
-
-    return jsonify({
-        "success": True,
-        "facebook_access_token": token_obj.token
-    }), 200
-
-# Get the server's public IP
 def get_server_public_ip():
     try:
         ip = requests.get('https://api.ipify.org').text.strip()
@@ -274,30 +231,32 @@ def get_server_public_ip():
 #     })
 
 @mcp_api.route('/save_user_session', methods=['POST'])
-def save_user_session():
+@account_key_required
+def save_user_session(user):
     data = request.get_json()
-    if not data:
+    if not isinstance(data, dict):
         return jsonify({"success": False, "message": "Invalid JSON data"}), 400
 
-    user_id = data.get("user_id")
     session_id = data.get("session_id")
-    server_ip = data.get("server_ip")  # <- get from client now
-    print("Received Server IP ->", server_ip)
-    organization_id= data.get("organization_id")
-    print("Received Organization ID ->", organization_id)
-
-    if not all([user_id, session_id, server_ip]):
-        return jsonify({"success": False, "message": "Missing required data"}), 400
+    server_ip = data.get("server_ip")
+    organization_id = data.get("organization_id")
+    if (not isinstance(session_id, str) or not 0 < len(session_id) <= 2048
+            or not isinstance(server_ip, str) or not 0 < len(server_ip) <= 128
+            or (organization_id is not None and
+                (not isinstance(organization_id, str) or len(organization_id) > 256))):
+        return jsonify({"success": False, "message": "Invalid session registration"}), 400
 
     try:
-        UserSession.save_or_update(user_id, session_id, server_ip, organization_id)
-    except Exception as e:
-        return jsonify({"success": False, "message": f"Error saving session: {str(e)}"}), 500
+        UserSession.save_or_update(user.id, session_id, server_ip, organization_id)
+    except Exception:
+        logger.error("Session registration failed")
+        return jsonify({"success": False, "message": "Could not save session."}), 500
 
     return jsonify({"success": True, "message": "Session saved", "server_ip": server_ip, "organization_id": organization_id})
 
 @mcp_api.route('/get_latest_session_by_org_id', methods=['GET'])
-def get_latest_session_by_org_id():
+@account_key_required
+def get_latest_session_by_org_id(user):
     # server_ip = request.args.get('server_ip')
     # if not server_ip:
     #     return jsonify({"success": False, "message": "Missing server_ip query parameter"}), 400
@@ -306,9 +265,10 @@ def get_latest_session_by_org_id():
         return jsonify({"success": False, "message": "Missing organization_id query parameter"}), 400
 
     try:
-        session = UserSession.get_latest_session_by_org_id(organization_id)
-    except Exception as e:
-        return jsonify({"success": False, "message": f"Error fetching session: {str(e)}"}), 500
+        session = UserSession.get_latest_session_by_org_id(user.id, organization_id)
+    except Exception:
+        logger.error("Session lookup failed")
+        return jsonify({"success": False, "message": "Could not fetch session."}), 500
 
     if not session:
         return jsonify({"success": False, "message": "No organization_id found"}), 404
@@ -321,15 +281,17 @@ def get_latest_session_by_org_id():
     })
 
 @mcp_api.route('/get_latest_session_by_session_id', methods=['GET'])
-def get_latest_session_by_session_id():
+@account_key_required
+def get_latest_session_by_session_id(user):
     session_id = request.args.get('session_id')
     if not session_id:
         return jsonify({"success": False, "message": "Missing session_id in query parameter"}), 400
 
     try:
-        session = UserSession.get_by_session_id(session_id)
-    except Exception as e:
-        return jsonify({"success": False, "message": f"Error fetching session: {str(e)}"}), 500
+        session = UserSession.get_by_session_id(user.id, session_id)
+    except Exception:
+        logger.error("Session lookup failed")
+        return jsonify({"success": False, "message": "Could not fetch session."}), 500
 
     if not session:
         return jsonify({"success": False, "message": "No session found with that session_id"}), 404
@@ -712,34 +674,10 @@ def facebook_get_campaign_details():
         return jsonify({"error": "Internal server error"}), 500
 
 @mcp_api.route("/sse", methods=["GET", "POST"])
-def sse_handler():
-    """Handle SSE connections and Claude tool calls"""
+@account_key_required
+def sse_handler(user):
+    """Use the verified account for the event stream and its tool calls."""
     if request.method == "GET":
-        # Handle browser/server-sent-events connection
-        auth_header = request.headers.get("Authorization")
-        logger.debug(f"SSE AUTH HEADER RECEIVED: {auth_header}")
-        
-        if not auth_header:
-            return jsonify({
-                "success": False,
-                "message": "Missing 'Authorization' header."
-            }), 401
-
-        parts = auth_header.split()
-        if len(parts) != 2 or parts[0].lower() != "bearer":
-            return jsonify({
-                "success": False,
-                "message": "Invalid Authorization header format. Expected 'Bearer <API_KEY>'"
-            }), 401
-        
-        api_key = parts[1]
-        user = User.get_by_api_key(api_key)
-        if not user:
-            return jsonify({
-                "success": False,
-                "message": "Invalid or expired API key."
-            }), 403
-        
         session_id = str(uuid.uuid4())
 
         def event_stream():
@@ -752,54 +690,16 @@ def sse_handler():
 
         return Response(stream_with_context(event_stream()), mimetype='text/event-stream')
 
-    elif request.method == "POST":
-        # Handle Claude tool call
-        user_id = request.headers.get("X-User-ID")
-        user_email = request.headers.get("X-User-Email")
-
-        if not user_id or not user_email:
-            return jsonify({
-                "success": False,
-                "message": "Missing Claude headers: X-User-ID or X-User-Email"
-            }), 401
-
-        data = request.json or {}
-        tool = data.get("tool")
-        input_data = data.get("input", {})
-
-        logger.info(f"Claude Request - User: {user_email}, Tool: {tool}, Input: {input_data}")
-
-        # Map tool names to handler functions
-        if tool == "facebook_list_ad_accounts":
-            user = User.get_by_claude_id(user_id)
-            if not user:
-                return jsonify({"success": False, "error": "User not found"}), 404
-            
-            # Fetch Facebook access token
-            token_obj = Token.get_by_user_id_and_type(user.id, "facebook")
-            if not token_obj:
-                return jsonify({"success": False, "error": "Facebook not connected"}), 403
-            
-            result = facebook_list_ad_accounts_function(token_obj.token)
-            return jsonify(result)
-        
-        # Handle other tools here
-        elif tool == "facebook_get_adaccount_insights":
-            user = User.get_by_claude_id(user_id)
-            if not user:
-                return jsonify({"success": False, "error": "User not found"}), 404
-            
-            token_obj = Token.get_by_user_id_and_type(user.id, "facebook")
-            if not token_obj:
-                return jsonify({"success": False, "error": "Facebook not connected"}), 403
-            
-            # You'd need to implement this function similar to facebook_list_ad_accounts_function
-            # result = facebook_get_adaccount_insights_function(token_obj.token, input_data)
-            # return jsonify(result)
-            return jsonify({"success": False, "error": "Tool not implemented yet"}), 501
-        
-        # If no tool matches, return error
-        return jsonify({"success": False, "error": f"Unknown tool: {tool}"}), 400
+    data = request.get_json(silent=True)
+    tool = data.get("tool") if isinstance(data, dict) else None
+    if tool not in ("facebook_list_ad_accounts", "facebook_get_adaccount_insights"):
+        return jsonify({"success": False, "error": "Unknown tool"}), 400
+    token_obj = Token.get_by_user_id_and_type(user.id, "facebook")
+    if not token_obj:
+        return jsonify({"success": False, "error": "Facebook not connected"}), 403
+    if tool == "facebook_list_ad_accounts":
+        return jsonify(facebook_list_ad_accounts_function(token_obj.token))
+    return jsonify({"success": False, "error": "Tool not implemented yet"}), 501
     
     # This should never be reached, but just in case
     return jsonify({"success": False, "error": "Invalid request method"}), 405

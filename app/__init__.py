@@ -32,6 +32,11 @@ def create_app():
     CORS(app, resources={
         r"/api/*": {"origins": "*"},
         r"/mcp-api/*": {"origins": "*"},
+        # Keep the account-management page and disconnect proof same-origin.
+        "/integrations/api/facebook/token": {"origins": []},
+        "/integrations/forward_token_to_10xer": {"origins": []},
+        "/integrations/integrations": {"origins": []},
+        "/integrations/facebook/disconnect": {"origins": []},
         r"/integrations/*": {"origins": "*"},
         r"/claude/*": {"origins": "*"},
         r"/.well-known/*": {"origins": "*"}
@@ -77,6 +82,8 @@ def create_app():
 
     @login_manager.user_loader
     def load_user(user_id):
+        if session.get("verified_login_user") != user_id:
+            return None
         return user.User.get(user_id)
 
     # Register Blueprints

@@ -2,12 +2,14 @@ from flask import Blueprint, render_template, redirect, url_for, request, sessio
 from flask_login import login_required, current_user
 from app.models.user import User
 from app.models.token import Token
+from app.models.user_session import UserSession
 from app.controllers.auth_controller import MCP_REDIRECT_URI
 from urllib.parse import urlencode
 import requests
 import os
 import uuid
 import logging
+import secrets
 from flask import jsonify
 
 logger = logging.getLogger(__name__)
@@ -46,7 +48,9 @@ def integrations():
     # If oauth_redirect is present and user is already authorized, redirect immediately
     if oauth_redirect:
         return redirect(oauth_redirect)
-    return render_template("integrations.html", user=user)
+    if not session.get("integration_csrf"):
+        session["integration_csrf"] = secrets.token_urlsafe(32)
+    return render_template("integrations.html", user=user, integration_csrf=session["integration_csrf"])
 
 
 @integrations_bp.route("/getOrganizationId", methods=["GET", "POST"])
@@ -78,44 +82,29 @@ def getOrganizationId():
         "request_headers": dict(api_response.request.headers)
     }
 
+def valid_integration_csrf():
+    expected = session.get("integration_csrf")
+    supplied = request.headers.get("X-CSRF-Token", "")
+    return bool(expected and supplied.isascii() and secrets.compare_digest(expected, supplied))
+
+
 @integrations_bp.route("/forward_token_to_10xer", methods=["POST"])
 @login_required
 def forward_token():
-    data = request.get_json()
-    if not data:
-        return jsonify({"success": False, "message": "Invalid JSON data"}), 400
+    if not valid_integration_csrf():
+        return jsonify({"error": "Refresh the integrations page and try again."}), 403
+    data = request.get_json(silent=True)
+    organization = data.get("organization_id") if isinstance(data, dict) else None
+    if not isinstance(organization, str) or not 0 < len(organization.strip()) <= 256:
+        return jsonify({"error": "An organization ID is required."}), 400
+    if not Token.get_by_user_id_and_type(current_user.id, "facebook"):
+        return jsonify({"error": "No connected Facebook account."}), 404
 
-    organization_id= data.get("organization_id")
-    print("Received Organization ID ->", organization_id)
-    print("current_user->", current_user.id)
-    token_obj = Token.get_by_user_id_and_type(current_user.id, "facebook")
-    if not token_obj:
-        return jsonify({"error": "No token found"}), 404
-    
-    # Or directly get the 'session' cookie value
-    session_cookie = request.cookies.get('session')
-    print("Session cookie:", session_cookie)
+    # Register directly for the signed-in owner without sharing their browser cookie.
+    session_id = session.setdefault("integration_session_id", secrets.token_urlsafe(32))
+    UserSession.save_or_update(current_user.id, session_id, request.remote_addr, organization.strip())
+    return jsonify({"status": "Organization synced"})
 
-    # Build headers including 'session-id' with the full session cookie value (including the "session=" prefix)
-    # If you want to include the key, prefix it; otherwise just send the cookie value
-    session_id_header_value = f"session={session_cookie}" if session_cookie else ""
-
-    headers = {
-        "Authorization": "Bearer YOUR_SHARED_SECRET",
-        "session-id": session_id_header_value
-    }
-
-    response = requests.post(
-        "https://10xer-production.up.railway.app/trigger-token-fetch",
-        json={"access_token": token_obj.token, "user_id": current_user.id, "organization_id": organization_id},
-        headers=headers,
-        timeout=360
-    )
-    print("response->", response)
-    if response.status_code == 200:
-        return jsonify({"status": "Token forwarded"})
-    else:
-        return jsonify({"error": "Failed to forward token"}), 500    
 
 @integrations_bp.route("/enter_organization", methods=["GET", "POST"])
 def enter_organization():
@@ -135,7 +124,6 @@ def enter_organization():
 
 @integrations_bp.route("/get_organization_id", methods=["GET"])
 def get_organization_id():
-    print("session->", session)
     # API endpoint to fetch stored organization_id from session
     org_id = session.get("organization_id")
     if not org_id:
@@ -263,26 +251,14 @@ def get_organization_id():
 @integrations_bp.route("/facebook/disconnect", methods=["POST"])
 @login_required
 def facebook_disconnect():
+    if not valid_integration_csrf():
+        return jsonify({"error": "Refresh the integrations page and try again."}), 403
     try:
-        logger.info(f"Disconnect request for user: {current_user.id}")
-        token_obj = Token.get_by_user_id_and_type(current_user.id, "facebook")
-        if token_obj:
-            logger.info(f"Found token: {token_obj.id} (type: {type(token_obj.id)})")
-            
-            result = Token.collection.delete_one({"_id": token_obj.id})
-            logger.debug(f"Delete result: {result.deleted_count} document(s) deleted.")
-            
-            if result.deleted_count == 1:
-                logger.info(f"User {current_user.id} disconnected Facebook integration.")
-                return jsonify({"message": "Facebook integration disconnected successfully."}), 200
-            else:
-                logger.warning(f"Token found but failed to delete for user {current_user.id}")
-                return jsonify({"error": "Failed to delete Facebook token."}), 500
-        else:
-            logger.warning(f"No Facebook token found for user {current_user.id}")
-            return jsonify({"error": "No Facebook integration found to disconnect."}), 404
-    except Exception as e:
-        logger.exception(f"Error disconnecting Facebook integration for user {current_user.id}")
+        if Token.disconnect_facebook(current_user.id):
+            return jsonify({"message": "Facebook integration disconnected successfully."}), 200
+        return jsonify({"error": "No Facebook integration found to disconnect."}), 404
+    except Exception:
+        logger.error("Could not disconnect Facebook integration")
         return jsonify({"error": "Failed to disconnect Facebook integration."}), 500
 
 
@@ -626,7 +602,6 @@ def facebook_callback():
 def get_facebook_token():
     try:
         auth_header = request.headers.get("Authorization")
-        print("auth_header->", auth_header)
 
         if auth_header:
             # If Authorization header exists, use it as token
@@ -637,7 +612,6 @@ def get_facebook_token():
                 token = auth_header.strip()
 
             token_obj = Token.get_by_token_and_type(token, "facebook")
-            print("token_obj->", token_obj)
 
             if not token_obj:
                 return jsonify({
@@ -653,7 +627,8 @@ def get_facebook_token():
             }), 200
 
         else:
-            # No Authorization header, fallback to old logic using current_user.id
+            if not current_user.is_authenticated:
+                return jsonify({"success": False, "message": "Authentication required."}), 401
             token_obj = Token.get_by_user_id_and_type(current_user.id, "facebook")
 
             if not token_obj:

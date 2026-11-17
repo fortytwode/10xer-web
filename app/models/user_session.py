@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 from bson import ObjectId
+from pymongo import ReturnDocument
+from hashlib import sha256
 
 
 class UserSession:
@@ -45,52 +47,31 @@ class UserSession:
         now = datetime.now(timezone.utc)
         user_id = ObjectId(user_id) if isinstance(user_id, str) else user_id
 
-        existing = cls.collection.find_one({"session_id": session_id})
-        if existing:
-            cls.collection.update_one(
-                {"_id": existing["_id"]},
-                {"$set": {
-                    "user_id": user_id,
-                    "ip_address": ip_address,
-                    "organization_id": organization_id,
-                    "updated_at": now
-                }}
-            )
-            return cls.from_dict({
-                **existing,
-                "user_id": user_id,
-                "ip_address": ip_address,
-                "updated_at": now
-            })
-
-        else:
-            doc = {
-                "user_id": user_id,
-                "session_id": session_id,
-                "ip_address": ip_address,
-                "organization_id": organization_id,
-                "created_at": now,
-                "updated_at": now
-            }
-            result = cls.collection.insert_one(doc)
-            doc["_id"] = result.inserted_id
-            return cls.from_dict(doc)
+        # An owner-scoped, deterministic key also makes concurrent registration idempotent.
+        key = f"{user_id}:{sha256(session_id.encode()).hexdigest()}"
+        fields = {"user_id": user_id, "session_id": session_id, "ip_address": ip_address,
+                  "organization_id": organization_id, "updated_at": now, "verified_owner": True}
+        doc = cls.collection.find_one_and_update(
+            {"_id": key}, {"$set": fields, "$setOnInsert": {"created_at": now}},
+            upsert=True, return_document=ReturnDocument.AFTER,
+        )
+        return cls.from_dict(doc)
 
     @classmethod
-    def get_latest_session_by_org_id(cls, organization_id):
+    def get_latest_session_by_org_id(cls, user_id, organization_id):
         if cls.collection is None:
             raise RuntimeError("UserSession.collection is not initialized.")
 
         doc = cls.collection.find_one(
-            {"organization_id": organization_id},
+            {"user_id": ObjectId(user_id), "organization_id": organization_id, "verified_owner": True},
             sort=[("updated_at", -1)]
         )
         return cls.from_dict(doc) if doc else None
     
     @classmethod
-    def get_by_session_id(cls, session_id):
+    def get_by_session_id(cls, user_id, session_id):
         if cls.collection is None:
             raise RuntimeError("UserSession.collection is not initialized.")
 
-        doc = cls.collection.find_one({"session_id": session_id})
+        doc = cls.collection.find_one({"user_id": ObjectId(user_id), "session_id": session_id, "verified_owner": True})
         return cls.from_dict(doc) if doc else None

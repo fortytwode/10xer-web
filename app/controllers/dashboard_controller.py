@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect
+from flask import Blueprint, render_template, redirect, url_for
 from flask_login import login_required, current_user
 from app.models.user import User
 from app.models.token import Token
@@ -17,7 +17,7 @@ def dashboard():
     return render_template(
         "dashboard.html",
         email=user.email,
-        api_key=user.user_dict.get("api_key"),  # your existing API key
+        api_key=user.account_api_key(),
         access_token=access_token               # pass the access token here
     )
 
@@ -25,11 +25,5 @@ def dashboard():
 @login_required
 def generate_api_key_route():
     user = User.get(current_user.id)
-    if user.api_key:
-        # API key already exists, just redirect
-        return redirect("/dashboard")
-
-    User.generate_api_key(user.id)
-    # Re-fetch user to get new api_key if needed
-    user = User.get(current_user.id)
-    return redirect("/dashboard")
+    user.account_api_key()
+    return redirect(url_for("dashboard.dashboard"))
