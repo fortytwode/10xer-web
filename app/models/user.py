@@ -84,6 +84,19 @@ class User(UserMixin):
             return cls(user_data)
         return None
 
+    @classmethod
+    def consume_email_token(cls, email, token):
+        """Redeem a fresh email token exactly once, before creating a session."""
+        user_data = cls.collection.find_one_and_update(
+            {
+                "email": email,
+                "email_token": token,
+                "email_token_expires": {"$gt": datetime.now(timezone.utc)},
+            },
+            {"$set": {"email_token": None, "email_token_expires": None}},
+        )
+        return cls(user_data) if user_data else None
+
     def clear_email_token(self):
         """Clear token after use"""
         User.collection.update_one(

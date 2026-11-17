@@ -3,6 +3,8 @@ from flask_login import login_user, logout_user, login_required, current_user
 from app.models.user import User
 from app.utils.email_utils import send_verification_email
 import uuid
+from hashlib import sha256
+from secrets import compare_digest
 from flask import session
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -10,6 +12,7 @@ import requests
 import os
 
 auth_bp = Blueprint("auth", __name__)
+MCP_REDIRECT_URI = "https://claude.ai/mcp-api/oauth/callback"
 
 
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', 'your-client-id-here')
@@ -59,55 +62,31 @@ def login():
             print("Debug: No user found, creating new user")  # Debug line
             # New user registration
             user = User.create(email)
-            is_email_verified = False
-        else:
-            is_email_verified = user.user_dict.get("isEmailVerify", False)
-            print(f"Debug: User email verification status: {is_email_verified}")  # Debug line
 
-        if not is_email_verified:
-            token = str(uuid.uuid4())
-            print(f"Debug: Email not verified, generated token: {token}")  # Debug line
-            User.save_email_token(email, token)
-            send_verification_email(email, token)
-            return redirect(url_for("auth.verify_request", provider="email", type="email"))
-
-        # Log the user in so current_user will work
-        login_user(user)
-        print(f"Debug: User logged in: {user}")  # Debug line
+        token = str(uuid.uuid4())
 
         # Check if this is part of MCP flow
         mcp_redirect = request.args.get('mcp_redirect')
         mcp_state = request.args.get('mcp_state') 
         mcp_client = request.args.get('mcp_client')
-        print(f"Debug: MCP params - redirect: {mcp_redirect}, state: {mcp_state}, client: {mcp_client}")  # Debug line
-        
+        if mcp_redirect and mcp_redirect != MCP_REDIRECT_URI:
+            return "Unsupported MCP redirect URI", 400
         if mcp_redirect and mcp_state:
-            # This is MCP flow - save params and start Facebook OAuth
             session.update({
                 'mcp_redirect_uri': mcp_redirect,
                 'mcp_state': mcp_state,
-                'mcp_client_id': mcp_client
+                'mcp_client_id': mcp_client,
+                'mcp_email_challenge': sha256(token.encode()).hexdigest()
             })
-            print("Debug: Starting Facebook OAuth flow")  # Debug line
-            
-            fb_state = str(uuid.uuid4())
-            session['fb_oauth_state'] = fb_state
-            print(f"Debug: Generated fb_oauth_state: {fb_state}")  # Debug line
-            
-            fb_auth_url = (
-                f"https://www.facebook.com/v23.0/dialog/oauth?"
-                f"client_id={os.getenv('FACEBOOK_APP_ID')}&"
-                f"redirect_uri={os.getenv('FACEBOOK_REDIRECT_URI')}&"
-                f"scope=ads_read,ads_management,business_management,pages_read_engagement,pages_manage_ads&"
-                f"response_type=code&"
-                f"state={fb_state}"
-            )
-            print(f"Debug: Redirecting to Facebook OAuth URL: {fb_auth_url}")  # Debug line
-            return redirect(fb_auth_url)
+        else:
+            session.pop('mcp_redirect_uri', None)
+            session.pop('mcp_state', None)
+            session.pop('mcp_client_id', None)
+            session.pop('mcp_email_challenge', None)
 
-        # Regular login flow
-        print("Debug: Redirecting to dashboard")  # Debug line
-        return redirect(url_for("dashboard.dashboard"))
+        User.save_email_token(email, token)
+        send_verification_email(email, token)
+        return redirect(url_for("auth.verify_request", provider="email", type="email"))
 
     # GET request - check for MCP params and preserve them
     mcp_redirect = request.args.get('mcp_redirect')
@@ -130,13 +109,30 @@ def verify_request():
 def verify_email_token():
     token = request.args.get("token")
     email = request.args.get("email")
-    user = User.get_by_email_token(email, token)
+    user = User.consume_email_token(email, token)
 
     if user:
         login_user(user)
-        user.clear_email_token()
         user.verify_email(user.email)
-        return redirect(url_for("dashboard.dashboard"))  # or wherever
+        challenge = session.pop('mcp_email_challenge', '')
+        matching_challenge = compare_digest(challenge, sha256(token.encode()).hexdigest())
+        if not matching_challenge:
+            session.pop('mcp_redirect_uri', None)
+            session.pop('mcp_state', None)
+            session.pop('mcp_client_id', None)
+        if matching_challenge and session.get('mcp_redirect_uri') == MCP_REDIRECT_URI and session.get('mcp_state'):
+            fb_state = str(uuid.uuid4())
+            session['fb_oauth_state'] = fb_state
+            fb_auth_url = (
+                f"https://www.facebook.com/v23.0/dialog/oauth?"
+                f"client_id={os.getenv('FACEBOOK_APP_ID')}&"
+                f"redirect_uri={os.getenv('FACEBOOK_REDIRECT_URI')}&"
+                f"scope=ads_read,ads_management,business_management,pages_read_engagement,pages_manage_ads&"
+                f"response_type=code&"
+                f"state={fb_state}"
+            )
+            return redirect(fb_auth_url)
+        return redirect(url_for("dashboard.dashboard"))
     else:
         flash("Invalid or expired link", "danger")
         return redirect(url_for("auth.login"))

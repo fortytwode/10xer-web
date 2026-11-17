@@ -1,13 +1,15 @@
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 import os
+from html import escape
+from urllib.parse import urlencode
 
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
-print("SENDGRID_API_KEY:", SENDGRID_API_KEY)
 LIVE_APP_URL = os.getenv("LIVE_APP_URL")
 
 def send_verification_email(to_email, token):
-    verify_url = f"{LIVE_APP_URL}/users/api/auth/callback/email?token={token}&email={to_email}"
+    query = urlencode({"token": token, "email": to_email})
+    verify_url = escape(f"{LIVE_APP_URL}/users/api/auth/callback/email?{query}", quote=True)
     
     html_content = f"""
     <p>Click the button below to securely sign in to your 10xer account.</p>
