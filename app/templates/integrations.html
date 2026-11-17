@@ -132,6 +132,7 @@
           {
             method: "POST",
             headers: {
+              "X-CSRF-Token": {{ integration_csrf|tojson }},
               "Content-Type": "application/json",
             },
             credentials: "same-origin",
@@ -224,7 +225,7 @@
     try {
       const res = await fetch("forward_token_to_10xer", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": {{ integration_csrf|tojson }} },
         body: JSON.stringify({ organization_id: orgId }),
         credentials: "same-origin",
       });

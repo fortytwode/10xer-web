@@ -86,6 +86,10 @@ class Token:
         return cls.get_latest(user_id, token_type)
     
     @classmethod
+    def disconnect_facebook(cls, user_id):
+        return cls.collection.delete_many({"user_id": ObjectId(user_id), "token_type": "facebook"}).deleted_count
+
+    @classmethod
     def get_by_token_and_type(cls, token, token_type):
         """Get token by token value and type"""
         try:

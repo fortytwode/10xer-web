@@ -4,7 +4,7 @@ from app.models.user import User
 from app.utils.email_utils import send_verification_email
 import uuid
 from hashlib import sha256
-from secrets import compare_digest
+from secrets import compare_digest, token_urlsafe
 from flask import session
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -113,6 +113,7 @@ def verify_email_token():
 
     if user:
         login_user(user)
+        session["verified_login_user"] = user.id
         user.verify_email(user.email)
         challenge = session.pop('mcp_email_challenge', '')
         matching_challenge = compare_digest(challenge, sha256(token.encode()).hexdigest())
@@ -147,7 +148,6 @@ def logout():
     logout_user()
     print(f"User logged out. current_user.is_authenticated: {current_user.is_authenticated}")
     
-    print(f"Session before clear: {dict(session)}")
     session.clear()  # Optional: clear all session keys
     print("Session cleared")
     
@@ -163,7 +163,10 @@ def logout():
 @auth_bp.route("/login/google")
 def google_login():
     google_auth_endpoint = "https://accounts.google.com/o/oauth2/v2/auth"
+    state = token_urlsafe(32)
+    session["google_login_state"] = state
     params = {
+        "state": state,
         "client_id": GOOGLE_CLIENT_ID,
         "redirect_uri": GOOGLE_REDIRECT_URI,
         "response_type": "code",
@@ -179,9 +182,11 @@ def google_login():
 @auth_bp.route("/api/auth/google", methods=['POST', 'GET'])
 def google_callback():
     code = request.args.get("code")
-    print("Code received:", code)
+    state = request.args.get("state", "")
+    expected = session.pop("google_login_state", None)
+    if not expected or not state.isascii() or not compare_digest(expected, state):
+        return "Start Google sign-in again.", 400
     if not code:
-        print("No code provided, returning error")
         return "No authorization code provided", 400
 
     try:
@@ -193,21 +198,16 @@ def google_callback():
             "redirect_uri": GOOGLE_REDIRECT_URI,
             "grant_type": "authorization_code"
         }
-        print("Sending POST to token URL with data:", data)
 
-        token_resp = requests.post(token_url, data=data)
-        print("Token response status:", token_resp.status_code)
+        token_resp = requests.post(token_url, data=data, timeout=15)
         token_json = token_resp.json()
-        print("Token response JSON:", token_json)
 
         access_token = token_json.get("access_token")
         id_token_val = token_json.get("id_token")
 
         if not access_token or not id_token_val:
-            print("Missing access_token or id_token in response")
             return "Token error: Missing access_token or id_token", 400
 
-        print("Verifying ID token")
         id_info = id_token.verify_oauth2_token(
             id_token_val,
             google_requests.Request(),
@@ -215,33 +215,26 @@ def google_callback():
         )
 
         email = id_info.get("email")
-        print("Email from ID token:", email)
-        if not email:
-            print("Email not found in ID token")
-            return "Email not found in ID token", 400
+        if not email or id_info.get("email_verified") is not True:
+            return "A verified Google email address is required.", 403
 
         user = User.get_by_email(email)
-        print("User fetched from DB:", user)
         if not user:
-            print("User not found, creating new user")
             user = User.create(email)
 
-        print("Updating email verification status")
         User.verify_email(email)
         user.user_dict["isEmailVerify"] = True
 
-        print("Logging in user:", user.email)
         login_user(user)
+        session["verified_login_user"] = user.id
 
         session['user_email'] = email
         session['user_picture'] = id_info.get("picture")
 
-        print("Redirecting to success page")
         return redirect(GOOGLE_REDIRECT_LOGIN_SUCCESS)
 
-    except Exception as e:
-        print("Login failed with exception:", str(e))
-        return f"Login failed: {str(e)}", 500
+    except (ValueError, requests.RequestException):
+        return "Google sign-in failed.", 400
 
 import time    
 auth_codes = {}  

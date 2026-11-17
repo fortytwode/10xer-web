@@ -1,3 +1,5 @@
+import secrets
+
 from bson import ObjectId
 from flask_login import UserMixin
 from datetime import datetime, timezone, timedelta
@@ -31,12 +33,13 @@ class User(UserMixin):
     def create(cls, email):
         now = datetime.now(timezone.utc)
         user_id = ObjectId()
-        api_key = str(ObjectId())  # Unique API key string
+        api_key = secrets.token_urlsafe(32)
 
         user_data = {
             "_id": user_id,
             "email": email,
             "api_key": api_key,
+            "api_key_version": 2,
             "createdAt": now,
             "updatedAt": now,
             "email_token": None,
@@ -119,9 +122,22 @@ class User(UserMixin):
         )
         return result.modified_count == 1
 
+    def account_api_key(self):
+        if self.user_dict.get("api_key_version") == 2:
+            return self.user_dict["api_key"]
+        # Upgrade historical ObjectId keys only after the account holder signs in.
+        key = secrets.token_urlsafe(32)
+        result = self.collection.update_one(
+            {"_id": ObjectId(self.id), "api_key_version": {"$ne": 2}},
+            {"$set": {"api_key": key, "api_key_version": 2}},
+        )
+        if result.modified_count:
+            return key
+        return self.get(self.id).user_dict["api_key"]
+
     @classmethod
     def get_by_api_key(cls, api_key):
-        user_data = cls.collection.find_one({"api_key": api_key})
+        user_data = cls.collection.find_one({"api_key": api_key, "api_key_version": 2})
         if user_data:
             return cls(user_data)
         return None
